@@ -1,0 +1,22 @@
+{
+  "name": "@yobi/financial-utils",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@yobi/shared-types": "workspace:*",
+    "date-fns": "^3.6.0",
+    "decimal.js": "^10.4.3"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "^5.8.3",
+    "@types/node": "^20"
+  }
+} 

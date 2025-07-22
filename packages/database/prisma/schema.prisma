@@ -1,0 +1,487 @@
+// Prisma Schema for Trading Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id                String           @id @default(cuid())
+  email             String           @unique
+  username          String           @unique
+  password          String
+  firstName         String
+  lastName          String
+  phoneNumber       String?
+  role              UserRole         @default(TRADER)
+  subscriptionTier  SubscriptionTier @default(FREE)
+  isEmailVerified   Boolean          @default(false)
+  isPhoneVerified   Boolean          @default(false)
+  isActive          Boolean          @default(true)
+  lastLoginAt       DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  // Relations
+  preferences   UserPreferences?
+  sessions      Session[]
+  portfolios    Portfolio[]
+  watchlists    Watchlist[]
+  orders        Order[]
+  trades        Trade[]
+  alerts        Alert[]
+  apiKeys       ApiKey[]
+}
+
+model UserPreferences {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  theme              String   @default("system")
+  language           String   @default("en")
+  timezone           String   @default("UTC")
+  currency           String   @default("USD")
+  defaultExchange    String   @default("NSE")
+  riskProfile        Json     // Stores risk profile as JSON
+  notifications      Json     // Stores notification preferences as JSON
+  favoriteAssetClasses String[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  userId     String
+  token      String   @unique
+  deviceInfo Json
+  expiresAt  DateTime
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+// Market Data
+model Instrument {
+  id         String      @id @default(cuid())
+  symbol     String
+  name       String
+  assetClass AssetClass
+  exchange   Exchange
+  sector     String?
+  industry   String?
+  isin       String?     @unique
+  currency   String      @default("USD")
+  lotSize    Int         @default(1)
+  tickSize   Float       @default(0.01)
+  isActive   Boolean     @default(true)
+  metadata   Json?       // Additional instrument-specific data
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  // Relations
+  marketData      MarketData[]
+  positions       Position[]
+  orders          Order[]
+  trades          Trade[]
+  alerts          Alert[]
+  fundamentals    FundamentalData?
+  recommendations Recommendation[]
+
+  @@unique([symbol, exchange])
+  @@index([assetClass])
+  @@index([exchange])
+  @@index([sector])
+}
+
+model MarketData {
+  id            String    @id @default(cuid())
+  instrumentId  String
+  timestamp     DateTime
+  open          Float
+  high          Float
+  low           Float
+  close         Float
+  previousClose Float
+  volume        BigInt
+  value         Float
+  trades        Int
+  vwap          Float?
+  change        Float
+  changePercent Float
+  dayHigh       Float
+  dayLow        Float
+  weekHigh52    Float?
+  weekLow52     Float?
+  createdAt     DateTime  @default(now())
+
+  // Relations
+  instrument Instrument @relation(fields: [instrumentId], references: [id])
+
+  @@index([instrumentId, timestamp])
+  @@index([timestamp])
+}
+
+// Portfolio Management
+model Portfolio {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  description     String?
+  currency        String   @default("USD")
+  isDefault       Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  totalValue      Float    @default(0)
+  availableCash   Float    @default(0)
+  investedAmount  Float    @default(0)
+  realizedPnL     Float    @default(0)
+  unrealizedPnL   Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  positions    Position[]
+  orders       Order[]
+  trades       Trade[]
+  transactions Transaction[]
+
+  @@index([userId])
+}
+
+model Position {
+  id                  String    @id @default(cuid())
+  portfolioId         String
+  instrumentId        String
+  quantity            Int
+  averagePrice        Float
+  investedAmount      Float
+  realizedPnL         Float     @default(0)
+  firstBuyDate        DateTime
+  lastTransactionDate DateTime
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  portfolio  Portfolio  @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  instrument Instrument @relation(fields: [instrumentId], references: [id])
+
+  @@unique([portfolioId, instrumentId])
+  @@index([portfolioId])
+  @@index([instrumentId])
+}
+
+// Trading
+model Order {
+  id               String      @id @default(cuid())
+  userId           String
+  portfolioId      String
+  instrumentId     String
+  orderNumber      String      @unique
+  side             OrderSide
+  type             OrderType
+  quantity         Int
+  price            Float?
+  stopPrice        Float?
+  executedQuantity Int         @default(0)
+  executedPrice    Float?
+  status           OrderStatus @default(PENDING)
+  validity         String      @default("DAY")
+  timeInForce      String      @default("DAY")
+  message          String?
+  fees             Float       @default(0)
+  tax              Float       @default(0)
+  placedAt         DateTime    @default(now())
+  executedAt       DateTime?
+  cancelledAt      DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  // Relations
+  user       User       @relation(fields: [userId], references: [id])
+  portfolio  Portfolio  @relation(fields: [portfolioId], references: [id])
+  instrument Instrument @relation(fields: [instrumentId], references: [id])
+  trades     Trade[]
+
+  @@index([userId])
+  @@index([portfolioId])
+  @@index([instrumentId])
+  @@index([status])
+  @@index([placedAt])
+}
+
+model Trade {
+  id             String   @id @default(cuid())
+  orderId        String
+  userId         String
+  portfolioId    String
+  instrumentId   String
+  tradeNumber    String   @unique
+  side           OrderSide
+  quantity       Int
+  price          Float
+  amount         Float
+  fees           Float    @default(0)
+  tax            Float    @default(0)
+  netAmount      Float
+  executedAt     DateTime
+  settlementDate DateTime
+  createdAt      DateTime @default(now())
+
+  // Relations
+  order      Order      @relation(fields: [orderId], references: [id])
+  user       User       @relation(fields: [userId], references: [id])
+  portfolio  Portfolio  @relation(fields: [portfolioId], references: [id])
+  instrument Instrument @relation(fields: [instrumentId], references: [id])
+
+  @@index([userId])
+  @@index([portfolioId])
+  @@index([instrumentId])
+  @@index([executedAt])
+}
+
+// Analysis & Recommendations
+model FundamentalData {
+  id              String   @id @default(cuid())
+  instrumentId    String   @unique
+  marketCap       Float?
+  peRatio         Float?
+  pbRatio         Float?
+  debtToEquity    Float?
+  roe             Float?
+  eps             Float?
+  revenue         Float?
+  revenueGrowth   Float?
+  netMargin       Float?
+  dividendYield   Float?
+  beta            Float?
+  data            Json     // Stores all fundamental data as JSON
+  lastUpdated     DateTime
+  createdAt       DateTime @default(now())
+
+  // Relations
+  instrument Instrument @relation(fields: [instrumentId], references: [id])
+}
+
+model Recommendation {
+  id             String         @id @default(cuid())
+  instrumentId   String
+  type           AnalysisType
+  action         String         // BUY, SELL, HOLD
+  signal         SignalStrength
+  entryPrice     Float
+  targetPrice    Float
+  stopLoss       Float
+  expectedReturn Float
+  riskRewardRatio Float
+  timeHorizon    TimeHorizon
+  confidence     Float
+  rationale      String
+  keyPoints      String[]
+  risks          String[]
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  validUntil     DateTime
+
+  // Relations
+  instrument Instrument @relation(fields: [instrumentId], references: [id])
+
+  @@index([instrumentId])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+// User Features
+model Watchlist {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  description  String?
+  isDefault    Boolean  @default(false)
+  instrumentIds String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Alert {
+  id           String    @id @default(cuid())
+  userId       String
+  instrumentId String
+  type         AlertType
+  condition    String
+  value        Float
+  isActive     Boolean   @default(true)
+  triggered    Boolean   @default(false)
+  triggeredAt  DateTime?
+  message      String
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instrument Instrument @relation(fields: [instrumentId], references: [id])
+
+  @@index([userId])
+  @@index([instrumentId])
+  @@index([isActive])
+}
+
+model Transaction {
+  id          String            @id @default(cuid())
+  portfolioId String
+  type        TransactionType
+  amount      Float
+  currency    String
+  description String
+  referenceId String?
+  status      TransactionStatus @default(PENDING)
+  processedAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id])
+
+  @@index([portfolioId])
+  @@index([type])
+  @@index([status])
+}
+
+model ApiKey {
+  id         String   @id @default(cuid())
+  userId     String
+  name       String
+  key        String   @unique
+  permissions String[]
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([key])
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  TRADER
+  INVESTOR
+  ANALYST
+  VIEWER
+}
+
+enum SubscriptionTier {
+  FREE
+  BASIC
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum AssetClass {
+  STOCK
+  ETF
+  MUTUAL_FUND
+  BOND
+  COMMODITY
+  CRYPTO
+  FOREX
+  FIXED_DEPOSIT
+}
+
+enum Exchange {
+  NSE
+  BSE
+  NASDAQ
+  NYSE
+  CRYPTO
+}
+
+enum OrderSide {
+  BUY
+  SELL
+}
+
+enum OrderType {
+  MARKET
+  LIMIT
+  STOP_LOSS
+  STOP_LIMIT
+}
+
+enum OrderStatus {
+  PENDING
+  PLACED
+  PARTIALLY_FILLED
+  FILLED
+  CANCELLED
+  REJECTED
+}
+
+enum AnalysisType {
+  TECHNICAL
+  FUNDAMENTAL
+  SENTIMENT
+  QUANTITATIVE
+  AI_POWERED
+}
+
+enum SignalStrength {
+  STRONG_BUY
+  BUY
+  NEUTRAL
+  SELL
+  STRONG_SELL
+}
+
+enum TimeHorizon {
+  INTRADAY
+  SHORT_TERM
+  MEDIUM_TERM
+  LONG_TERM
+}
+
+enum AlertType {
+  PRICE
+  VOLUME
+  TECHNICAL
+  FUNDAMENTAL
+  NEWS
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  DIVIDEND
+  INTEREST
+  FEE
+  TAX
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+} 

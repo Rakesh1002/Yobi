@@ -1,0 +1,15 @@
+{
+  "extends": "../typescript-config/base.json",
+  "compilerOptions": {
+    "lib": ["ES2020"],
+    "module": "CommonJS",
+    "target": "ES2020",
+    "moduleResolution": "node",
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "dist",
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts", "prisma/*.ts"],
+  "exclude": ["node_modules", "dist"]
+} 
