@@ -8,7 +8,7 @@
     "dev:trading": "turbo dev --filter=@yobi/trading-frontend --filter=@yobi/api-gateway --filter=@yobi/data-collector --filter=@yobi/background-agent",
     "dev:all": "turbo dev",
     "dev:frontend": "turbo dev --filter=@yobi/trading-frontend",
-    "dev:api": "turbo dev --filter=@yobi/api-gateway", 
+    "dev:api": "turbo dev --filter=@yobi/api-gateway",
     "dev:collector": "turbo dev --filter=@yobi/data-collector",
     "dev:agent": "turbo dev --filter=@yobi/background-agent",
     "start:frontend": "cd apps/trading-platform/frontend && pnpm dev",
@@ -17,7 +17,13 @@
     "start:agent": "cd apps/trading-platform/background-agent && pnpm dev",
     "lint": "turbo lint",
     "type-check": "turbo type-check",
-    "clean": "turbo clean"
+    "clean": "turbo clean",
+    "db:generate": "cd packages/database && npx prisma generate",
+    "db:push": "cd packages/database && npx prisma db push",
+    "db:migrate": "cd packages/database && npx prisma migrate dev",
+    "db:timescale:setup": "cd packages/database && node enable-timescale.js",
+    "db:timescale:health": "cd packages/database && node check-timescale.js",
+    "db:timescale:demo": "cd packages/database && node timescale-example.js"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
@@ -29,5 +35,8 @@
   "packageManager": "pnpm@9.1.4",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "neonctl": "^2.12.0"
   }
 }

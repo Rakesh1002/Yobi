@@ -695,4 +695,62 @@ model NewsEvent {
   @@index([publishedAt])
   @@index([eventType])
   @@index([severity])
+}
+
+// TimescaleDB Time-Series Models
+model TechnicalIndicator {
+  timestamp     DateTime
+  instrumentId  String   @map("instrument_id")
+  symbol        String
+  indicatorName String   @map("indicator_name")
+  timeframe     String
+  value         Decimal  @db.Decimal(20, 8)
+  signal        String?
+  metadata      Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@id([timestamp, instrumentId, indicatorName, timeframe])
+  @@map("technical_indicators")
+  @@index([symbol, timestamp(sort: Desc)])
+  @@index([instrumentId, indicatorName, timestamp(sort: Desc)])
+}
+
+model PortfolioPerformance {
+  timestamp        DateTime
+  portfolioId      String   @map("portfolio_id")
+  userId           String   @map("user_id")
+  totalValue       Decimal  @map("total_value") @db.Decimal(20, 8)
+  cashValue        Decimal  @map("cash_value") @db.Decimal(20, 8)
+  investedValue    Decimal  @map("invested_value") @db.Decimal(20, 8)
+  dayPnl           Decimal  @map("day_pnl") @db.Decimal(20, 8)
+  totalPnl         Decimal  @map("total_pnl") @db.Decimal(20, 8)
+  dayReturnPct     Decimal? @map("day_return_pct") @db.Decimal(10, 4)
+  totalReturnPct   Decimal? @map("total_return_pct") @db.Decimal(10, 4)
+  benchmarkReturn  Decimal? @map("benchmark_return") @db.Decimal(10, 4)
+  alpha            Decimal? @db.Decimal(10, 4)
+  beta             Decimal? @db.Decimal(10, 4)
+  sharpeRatio      Decimal? @map("sharpe_ratio") @db.Decimal(10, 4)
+  maxDrawdown      Decimal? @map("max_drawdown") @db.Decimal(10, 4)
+  positionsCount   Int?     @map("positions_count")
+  metadata         Json?
+
+  @@id([timestamp, portfolioId])
+  @@map("portfolio_performance")
+  @@index([portfolioId, timestamp(sort: Desc)])
+  @@index([userId, timestamp(sort: Desc)])
+}
+
+model UserActivity {
+  timestamp   DateTime @id
+  userId      String   @map("user_id")
+  action      String
+  resource    String?
+  details     Json?
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  sessionId   String?  @map("session_id")
+
+  @@map("user_activity")
+  @@index([userId, timestamp(sort: Desc)])
+  @@index([action, timestamp(sort: Desc)])
 } 

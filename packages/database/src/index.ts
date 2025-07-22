@@ -10,4 +10,7 @@ export { mongoClient, connectMongoDB } from './mongodb'
 export { redis, cache } from './redis'
 
 // ClickHouse client
-export { clickhouse } from './clickhouse' 
+export { clickhouse } from './clickhouse'
+
+// TimescaleDB service
+export { TimescaleDBService, getTimescaleDBService } from './timescaledb' 
