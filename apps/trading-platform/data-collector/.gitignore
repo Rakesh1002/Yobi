@@ -1,0 +1,50 @@
+# Data Collector specific
+.env
+.env.local
+.env.development
+.env.production
+
+# Build outputs
+dist/
+build/
+
+# Turborepo
+.turbo/
+
+# Data collection logs
+logs/
+*.log
+collection.log
+error.log
+combined.log
+
+# Collected market data
+market-data/
+historical-data/
+real-time-data/
+data-cache/
+
+# CSV and data files
+*.csv
+*.json.bak
+*.xml
+data-exports/
+
+# Temporary processing
+temp/
+processing/
+queue/
+
+# Python cache (if using Python scripts)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# API rate limiting cache
+rate-limit-cache/
+
+# Failed downloads
+failed-downloads/
+retry-queue/ 

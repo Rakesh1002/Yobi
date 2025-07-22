@@ -1,0 +1,39 @@
+# Background Agent specific
+.env
+.env.local
+.env.development
+.env.production
+
+# Build outputs
+dist/
+build/
+
+# Turborepo
+.turbo/
+
+# Agent logs
+logs/
+*.log
+agent-debug.log
+scheduler.log
+
+# Downloaded documents
+downloads/
+documents/
+temp-docs/
+
+# AI model cache
+model-cache/
+embeddings-cache/
+
+# Processing queues
+queue-data/
+processing/
+
+# S3 sync cache
+s3-cache/
+
+# WebDriver/Puppeteer
+.chrome/
+.firefox/
+screenshot-*.png 

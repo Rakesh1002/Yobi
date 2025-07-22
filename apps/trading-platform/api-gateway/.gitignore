@@ -1,0 +1,34 @@
+# API Gateway specific
+.env
+.env.local
+.env.development
+.env.production
+
+# Build outputs
+dist/
+build/
+
+# Turborepo
+.turbo/
+
+# API logs
+logs/
+*.log
+combined.log
+error.log
+access.log
+
+# Uploads
+uploads/
+temp/
+
+# SSL certificates
+ssl/
+certs/
+*.key
+*.pem
+*.crt
+
+# Testing
+coverage/
+test-results/ 

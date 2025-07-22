@@ -54,37 +54,75 @@ service-account.json
 **/*.p12
 
 # ===================================
-# NODE.JS & PACKAGE MANAGERS
+# NODE.JS & PACKAGE MANAGERS (TURBOREPO)
 # ===================================
+# Dependencies (root and all packages)
 node_modules/
+**/node_modules/
+
+# Package manager files
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+turbo-debug.log*
+
+# Package manager stores and caches
 .pnpm-store/
 .yarn/
 .npm/
+.yarnrc.yml
+
+# Lock files (typically only root should have these in monorepos)
 package-lock.json
 yarn.lock
+# pnpm-lock.yaml should be committed for reproducible builds
+
+# Package manager temporary files
+.pnpm-debug.log*
+.yarn-error.log*
 
 # ===================================
-# BUILD OUTPUTS & DISTRIBUTIONS
+# TURBOREPO & BUILD OUTPUTS
 # ===================================
-dist/
-build/
-out/
-.next/
-.nuxt/
-.vuepress/dist/
-.serverless/
+# Turborepo cache (root and all packages)
 .turbo/
-.vercel/
-.netlify/
+**/.turbo/
 
-# TypeScript build info
+# Build outputs (Turborepo managed)
+dist/
+**/dist/
+build/
+**/build/
+out/
+**/out/
+
+# Next.js (frontend apps)
+.next/
+**/.next/
+
+# Other framework outputs
+.nuxt/
+**/.nuxt/
+.vuepress/dist/
+**/.vuepress/dist/
+
+# Serverless & deployment
+.serverless/
+**/.serverless/
+.vercel/
+**/.vercel/
+.netlify/
+**/.netlify/
+
+# TypeScript build info (all packages)
 *.tsbuildinfo
+**/*.tsbuildinfo
 .tscache/
+**/.tscache/
+tsconfig.json.bak
+**/tsconfig.json.bak
 
 # ===================================
 # PRISMA & DATABASE
@@ -352,23 +390,61 @@ site/
 .vscode-test
 
 # ===================================
-# PROJECT SPECIFIC
+# TURBOREPO SPECIFIC
 # ===================================
-# Trading platform specific
+# Turborepo remote cache
+.turbo-cache/
+**/.turbo-cache/
+
+# Turborepo local artifacts
+turbo-debug.log*
+**/turbo-debug.log*
+
+# Build artifacts from turbo pipelines
+**/lib/
+**/esm/
+**/cjs/
+**/types/
+
+# ===================================
+# PROJECT SPECIFIC (TRADING PLATFORM)
+# ===================================
+# Trading platform specific data
 market-data-cache/
+**/market-data-cache/
 analysis-cache/
+**/analysis-cache/
 user-uploads/
+**/user-uploads/
 temp-reports/
+**/temp-reports/
 generated-reports/
+**/generated-reports/
 
 # AI model files (large files)
 *.model
+**/*.model
 *.weights
+**/*.weights
 *.h5
+**/*.h5
 *.pkl
+**/*.pkl
 *.joblib
+**/*.joblib
+
+# Financial data files
+market-data/
+**/market-data/
+historical-data/
+**/historical-data/
+trading-logs/
+**/trading-logs/
 
 # Local development
 .local/
+**/.local/
 .dev/
+**/.dev/
 localhost.*
+**/localhost.*
