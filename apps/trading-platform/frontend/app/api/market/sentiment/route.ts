@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 interface MarketSentiment {
   overall: number
   bullish: number
@@ -19,7 +21,7 @@ interface MarketSentiment {
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
     const source = searchParams.get('source') || 'ALL'
 
     // Mock sentiment data - in a real app, this would come from sentiment analysis APIs

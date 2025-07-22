@@ -1,33 +1,33 @@
 {
   "name": "yobi",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev --filter=@yobi/trading-frontend --filter=@yobi/api-gateway --filter=@yobi/data-collector",
-    "dev:frontend": "turbo run dev --filter=@yobi/trading-frontend",
-    "dev:trading": "turbo run dev --filter=@yobi/trading-frontend --filter=@yobi/api-gateway",
-    "dev:all": "turbo run dev",
-    "dev:data-collector": "turbo run dev --filter=@yobi/data-collector",
-    "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types",
-    "db:generate": "turbo run db:generate --filter=@yobi/database",
-    "db:push": "turbo run db:push --filter=@yobi/database",
-    "db:migrate": "turbo run db:migrate --filter=@yobi/database"
+    "build": "turbo build",
+    "dev": "turbo dev --ui=tui --parallel --no-cache --filter=@yobi/trading-frontend --filter=@yobi/api-gateway --filter=@yobi/data-collector --filter=@yobi/background-agent",
+    "dev:trading": "turbo dev --filter=@yobi/trading-frontend --filter=@yobi/api-gateway --filter=@yobi/data-collector --filter=@yobi/background-agent",
+    "dev:all": "turbo dev",
+    "dev:frontend": "turbo dev --filter=@yobi/trading-frontend",
+    "dev:api": "turbo dev --filter=@yobi/api-gateway", 
+    "dev:collector": "turbo dev --filter=@yobi/data-collector",
+    "dev:agent": "turbo dev --filter=@yobi/background-agent",
+    "start:frontend": "cd apps/trading-platform/frontend && pnpm dev",
+    "start:api": "cd apps/trading-platform/api-gateway && pnpm dev",
+    "start:collector": "cd apps/trading-platform/data-collector && pnpm dev",
+    "start:agent": "cd apps/trading-platform/background-agent && pnpm dev",
+    "lint": "turbo lint",
+    "type-check": "turbo type-check",
+    "clean": "turbo clean"
   },
   "devDependencies": {
-    "prettier": "^3.6.2",
-    "turbo": "^2.5.5",
-    "typescript": "5.8.3"
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "concurrently": "^8.2.2",
+    "turbo": "^2.0.5",
+    "typescript": "^5.5.3"
   },
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@9.1.4",
   "engines": {
     "node": ">=18"
-  },
-  "pnpm": {
-    "overrides": {
-      "@repo/typescript-config": "workspace:*",
-      "@repo/eslint-config": "workspace:*"
-    }
   }
 }

@@ -22,10 +22,14 @@ export default function RootLayout({
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body className={inter.className}>
+      <body className={`${inter.className} bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-200`}>
         <Providers>
-          <Navigation />
-          {children}
+          <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+            <Navigation />
+            <main className="bg-gray-50 dark:bg-gray-900 min-h-screen">
+              {children}
+            </main>
+          </div>
         </Providers>
       </body>
     </html>

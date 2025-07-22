@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Search, TrendingUp, Brain, Target, AlertTriangle } from 'lucide-react'
 import EnhancedAnalysis from '@/components/EnhancedAnalysis'
 
-export default function AnalysisPage() {
+function AnalysisContent() {
   const searchParams = useSearchParams()
   const [selectedSymbol, setSelectedSymbol] = useState(searchParams.get('symbol') || '')
   const [enableKnowledge, setEnableKnowledge] = useState(true)
@@ -208,5 +208,20 @@ export default function AnalysisPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function AnalysisPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading analysis...</p>
+        </div>
+      </div>
+    }>
+      <AnalysisContent />
+    </Suspense>
   )
 } 

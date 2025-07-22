@@ -27,6 +27,19 @@ export const config = [
     },
   },
   {
+    rules: {
+      // Fix for typescript-eslint rule configuration issue
+      "@typescript-eslint/no-unused-expressions": [
+        "error",
+        {
+          allowShortCircuit: false,
+          allowTernary: false,
+          allowTaggedTemplates: false,
+        },
+      ],
+    },
+  },
+  {
     ignores: ["dist/**"],
   },
 ];

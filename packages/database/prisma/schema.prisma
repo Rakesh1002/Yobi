@@ -99,6 +99,11 @@ model Instrument {
   alerts          Alert[]
   fundamentals    FundamentalData?
   recommendations Recommendation[]
+  
+  // New Relations
+  documents       Document[]
+  searchResults   SearchResult[]
+  aiInsights      AiInsight[]
 
   @@unique([symbol, exchange])
   @@index([assetClass])
@@ -484,4 +489,210 @@ enum TransactionStatus {
   PENDING
   COMPLETED
   FAILED
+}
+
+// Document Management
+enum DocumentType {
+  SEC_FILING
+  EARNINGS_TRANSCRIPT
+  ANNUAL_REPORT
+  QUARTERLY_REPORT
+  NEWS_ARTICLE
+  RESEARCH_REPORT
+  PRESS_RELEASE
+  INVESTOR_PRESENTATION
+  PROXY_STATEMENT
+}
+
+enum DocumentStatus {
+  DISCOVERED
+  DOWNLOADING
+  PROCESSED
+  FAILED
+  ARCHIVED
+}
+
+enum SearchProvider {
+  TAVILY
+  EXA
+  SERP
+  EDGAR
+  COMPANY_IR
+}
+
+// Document Storage
+model Document {
+  id              String         @id @default(cuid())
+  instrumentId    String
+  title           String
+  url             String
+  documentType    DocumentType
+  filingType      String?        // 10-K, 10-Q, 8-K, etc.
+  publishedDate   DateTime?
+  discoveredAt    DateTime       @default(now())
+  processedAt     DateTime?
+  status          DocumentStatus @default(DISCOVERED)
+  
+  // S3 Storage
+  s3Key           String?        // S3 path where document is stored
+  s3Bucket        String?
+  contentHash     String?        // SHA-256 hash for deduplication
+  fileSize        BigInt?        // File size in bytes
+  
+  // Content & Metadata
+  extractedText   String?        // Full text content
+  summary         String?        // AI-generated summary
+  keyPoints       String[]       // Important highlights
+  metadata        Json           // Additional document metadata
+  
+  // Source Information
+  sourceProvider  SearchProvider
+  sourceUrl       String         // Original discovery URL
+  parentUrl       String?        // Parent page URL
+  
+  // Processing Info
+  downloadAttempts Int           @default(0)
+  lastError       String?
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relations
+  instrument      Instrument     @relation(fields: [instrumentId], references: [id])
+  searchResults   SearchResult[]
+
+  @@index([instrumentId])
+  @@index([documentType])
+  @@index([publishedDate])
+  @@index([status])
+  @@index([contentHash])
+  @@unique([instrumentId, contentHash]) // Prevent duplicates
+}
+
+// Web Search Results
+model SearchResult {
+  id              String         @id @default(cuid())
+  instrumentId    String
+  documentId      String?        // Link to document if converted
+  query           String         // Original search query
+  title           String
+  url             String
+  snippet         String?
+  provider        SearchProvider
+  relevanceScore  Float          @default(0)
+  publishedDate   DateTime?
+  discoveredAt    DateTime       @default(now())
+  
+  // Content Classification
+  contentType     String?        // news, filing, report, etc.
+  sentiment       Float?         // -1 to 1 sentiment score
+  topics          String[]       // Extracted topics/keywords
+  
+  // Metadata
+  domain          String?        // Source domain
+  author          String?        // Article author
+  metadata        Json           // Additional search metadata
+  
+  // Processing
+  isProcessed     Boolean        @default(false)
+  processedAt     DateTime?
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relations
+  instrument      Instrument     @relation(fields: [instrumentId], references: [id])
+  document        Document?      @relation(fields: [documentId], references: [id])
+
+  @@index([instrumentId])
+  @@index([provider])
+  @@index([discoveredAt])
+  @@index([relevanceScore])
+  @@unique([instrumentId, url, provider]) // Prevent duplicate URLs per provider
+}
+
+// AI Insights Storage
+model AiInsight {
+  id              String         @id @default(cuid())
+  instrumentId    String
+  analysisType    AnalysisType
+  
+  // Core Insights
+  recommendation  String         // BUY, SELL, HOLD
+  confidence      Float          // 0-1 confidence score
+  targetPrice     Float?
+  stopLoss        Float?
+  timeHorizon     TimeHorizon
+  
+  // Analysis Content
+  summary         String         // Executive summary
+  keyInsights     String[]       // Key points
+  risks           String[]       // Risk factors
+  opportunities   String[]       // Growth opportunities
+  rationale       String         // Detailed reasoning
+  
+  // Data Sources
+  sourcesUsed     Json           // References to documents/search results used
+  dataQuality     Float          // 0-1 data quality score
+  dataFreshness   DateTime       // Latest data point used
+  
+  // Metadata
+  modelVersion    String?        // AI model version used
+  processingTime  Int?           // Processing time in ms
+  tokenCount      Int?           // Tokens used for analysis
+  
+  // Validity & Status
+  isActive        Boolean        @default(true)
+  validUntil      DateTime?
+  generatedAt     DateTime       @default(now())
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relations
+  instrument      Instrument     @relation(fields: [instrumentId], references: [id])
+
+  @@index([instrumentId])
+  @@index([analysisType])
+  @@index([generatedAt])
+  @@index([isActive])
+}
+
+// News & Market Events
+model NewsEvent {
+  id              String         @id @default(cuid())
+  instrumentIds   String[]       // Multiple instruments can be affected
+  title           String
+  content         String?
+  summary         String?
+  url             String         @unique
+  
+  // Classification
+  eventType       String         // earnings, merger, regulatory, etc.
+  severity        String         // HIGH, MEDIUM, LOW
+  sentiment       Float?         // -1 to 1
+  marketImpact    Float?         // Expected impact score
+  
+  // Source & Timing
+  source          String         // Reuters, Bloomberg, etc.
+  author          String?
+  publishedAt     DateTime
+  discoveredAt    DateTime       @default(now())
+  
+  // Processing
+  isProcessed     Boolean        @default(false)
+  processedAt     DateTime?
+  aiAnalysis      String?        // AI-generated analysis
+  
+  // Metadata
+  tags            String[]       // Topic tags
+  mentions        Json           // Entity mentions
+  metadata        Json           // Additional event data
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([publishedAt])
+  @@index([eventType])
+  @@index([severity])
 } 

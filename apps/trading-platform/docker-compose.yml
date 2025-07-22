@@ -1,103 +1,127 @@
 version: '3.8'
 
 services:
+  # Database Services
+  postgres:
+    image: postgres:15
+    container_name: yobi-postgres
+    environment:
+      POSTGRES_DB: yobi
+      POSTGRES_USER: yobi
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-yobi123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - yobi-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: yobi-redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - yobi-network
+
+  mongodb:
+    image: mongo:7
+    container_name: yobi-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: yobi
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-yobi123}
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - yobi-network
+
+  # Application Services
   api-gateway:
-    build:
-      context: ../..
-      dockerfile: apps/trading-platform/api-gateway/Dockerfile
+    build: ./api-gateway
+    container_name: yobi-api-gateway
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://yobi:${DB_PASSWORD:-yobi123}@postgres:5432/yobi
+      - REDIS_URL=redis://redis:6379
+      - DATA_COLLECTOR_URL=http://data-collector:3004
+      - BACKGROUND_AGENT_URL=http://background-agent:3008
     ports:
       - "3002:3002"
-    environment:
-      - NODE_ENV=production
-      - PORT=3002
-      - DATABASE_URL=${NEON_DATABASE_URL}
-      - MONGODB_URI=${MONGODB_URI}
-      - UPSTASH_REDIS_REST_URL=${UPSTASH_REDIS_REST_URL}
-      - UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
-      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     depends_on:
-      - analysis-engine
+      - postgres
+      - redis
       - data-collector
-    restart: unless-stopped
+      - background-agent
     networks:
-      - trading-network
-
-  analysis-engine:
-    build:
-      context: ../..
-      dockerfile: apps/trading-platform/analysis-engine/Dockerfile
-    ports:
-      - "3003:3003"
-    environment:
-      - PYTHONUNBUFFERED=1
-      - PORT=3003
-      - DATABASE_URL=${NEON_DATABASE_URL}
-      - MONGODB_URI=${MONGODB_URI}
-      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
-      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
-      - YAHOO_FINANCE_API_KEY=${YAHOO_FINANCE_API_KEY}
-      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
-    restart: unless-stopped
-    networks:
-      - trading-network
+      - yobi-network
 
   data-collector:
-    build:
-      context: ../..
-      dockerfile: apps/trading-platform/data-collector/Dockerfile
+    build: ./data-collector
+    container_name: yobi-data-collector
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://yobi:${DB_PASSWORD:-yobi123}@postgres:5432/yobi
+      - REDIS_URL=redis://redis:6379
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+      - FINNHUB_API_KEY=${FINNHUB_API_KEY}
     ports:
       - "3004:3004"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - yobi-network
+
+  background-agent:
+    build: ./background-agent
+    container_name: yobi-background-agent
     environment:
       - NODE_ENV=production
-      - PORT=3004
-      - DATABASE_URL=${NEON_DATABASE_URL}
-      - MONGODB_URI=${MONGODB_URI}
-      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
-      - UPSTASH_REDIS_REST_URL=${UPSTASH_REDIS_REST_URL}
-      - UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
+      - DATABASE_URL=postgresql://yobi:${DB_PASSWORD:-yobi123}@postgres:5432/yobi
+      - REDIS_URL=redis://redis:6379
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - EXA_API_KEY=${EXA_API_KEY}
+      - SERP_API_KEY=${SERP_API_KEY}
       - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
-      - YAHOO_FINANCE_API_KEY=${YAHOO_FINANCE_API_KEY}
       - FINNHUB_API_KEY=${FINNHUB_API_KEY}
-      - POLYGON_API_KEY=${POLYGON_API_KEY}
-      - IEX_CLOUD_API_KEY=${IEX_CLOUD_API_KEY}
-    restart: unless-stopped
+      - DATA_COLLECTOR_URL=http://data-collector:3004
+      - API_GATEWAY_URL=http://api-gateway:3002
+    ports:
+      - "3008:3008"
+    depends_on:
+      - postgres
+      - redis
+      - mongodb
     networks:
-      - trading-network
+      - yobi-network
 
-  job-processor:
-    build:
-      context: ../..
-      dockerfile: apps/trading-platform/job-processor/Dockerfile
+  frontend:
+    build: ./frontend
+    container_name: yobi-frontend
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=${NEON_DATABASE_URL}
-      - MONGODB_URI=${MONGODB_URI}
-      - UPSTASH_REDIS_REST_URL=${UPSTASH_REDIS_REST_URL}
-      - UPSTASH_REDIS_REST_TOKEN=${UPSTASH_REDIS_REST_TOKEN}
-      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
-    restart: unless-stopped
-    networks:
-      - trading-network
-
-  nginx:
-    image: nginx:alpine
+      - NEXT_PUBLIC_API_URL=http://localhost:3002
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
+      - "3000:3000"
     depends_on:
       - api-gateway
-    restart: unless-stopped
     networks:
-      - trading-network
+      - yobi-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  mongodb_data:
 
 networks:
-  trading-network:
+  yobi-network:
     driver: bridge 

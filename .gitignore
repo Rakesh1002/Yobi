@@ -1,38 +1,374 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# Dependencies
-node_modules
-.pnp
-.pnp.js
-
-# Local env files
+# ===================================
+# ENVIRONMENT VARIABLES & SECRETS
+# ===================================
+# Root level .env files
 .env
+.env.*
 .env.local
+.env.development
 .env.development.local
+.env.test
 .env.test.local
+.env.production
 .env.production.local
+.env.staging
+.env.staging.local
 
-# Testing
-coverage
+# .env files in any subdirectory
+**/.env
+**/.env.*
+**/.env.local
+**/.env.development
+**/.env.development.local
+**/.env.test
+**/.env.test.local
+**/.env.production
+**/.env.production.local
+**/.env.staging
+**/.env.staging.local
 
-# Turbo
-.turbo
+# Any file with .env pattern anywhere
+*.env
+*.env.*
+**/*.env
+**/*.env.*
 
-# Vercel
-.vercel
+# API Keys and sensitive files (root and subdirectories)
+.secrets
+.config
+auth.json
+service-account.json
+*.key
+*.pem
+*.crt
+*.p12
 
-# Build Outputs
-.next/
-out/
-build
-dist
+# Sensitive files in any subdirectory
+**/.secrets
+**/.config
+**/auth.json
+**/service-account.json
+**/*.key
+**/*.pem
+**/*.crt
+**/*.p12
 
-
-# Debug
+# ===================================
+# NODE.JS & PACKAGE MANAGERS
+# ===================================
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-store/
+.yarn/
+.npm/
+package-lock.json
+yarn.lock
 
-# Misc
+# ===================================
+# BUILD OUTPUTS & DISTRIBUTIONS
+# ===================================
+dist/
+build/
+out/
+.next/
+.nuxt/
+.vuepress/dist/
+.serverless/
+.turbo/
+.vercel/
+.netlify/
+
+# TypeScript build info
+*.tsbuildinfo
+.tscache/
+
+# ===================================
+# PRISMA & DATABASE
+# ===================================
+# Prisma files (root and subdirectories)
+prisma/migrations/
+**/prisma/migrations/
+prisma/dev.db
+**/prisma/dev.db
+prisma/dev.db-journal
+**/prisma/dev.db-journal
+*.db
+**/*.db
+*.db-journal
+**/*.db-journal
+*.sqlite
+**/*.sqlite
+*.sqlite3
+**/*.sqlite3
+.prisma/
+**/.prisma/
+
+# Database dumps (anywhere)
+*.sql
+**/*.sql
+*.dump
+**/*.dump
+
+# ===================================
+# LOGS & TEMPORARY FILES
+# ===================================
+# Log directories and files (root and subdirectories)
+logs/
+**/logs/
+*.log
+**/*.log
+combined.log
+**/combined.log
+error.log
+**/error.log
+exceptions.log
+**/exceptions.log
+rejections.log
+**/rejections.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary directories (root and subdirectories)
+tmp/
+**/tmp/
+temp/
+**/temp/
+.tmp/
+**/.tmp/
+.temp/
+**/.temp/
+
+# ===================================
+# IDE & EDITOR FILES
+# ===================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Vim
+*.swp
+*.swo
+*.un~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ===================================
+# TESTING & COVERAGE
+# ===================================
+coverage/
+*.lcov
+.nyc_output/
+lib-cov/
+.coverage
+.pytest_cache/
+.coverage.*
+htmlcov/
+.tox/
+.cache/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Jest
+jest-cache/
+.jest-cache/
+
+# ===================================
+# DOCKER & CONTAINERIZATION
+# ===================================
+.dockerignore
+Dockerfile.prod
+docker-compose.override.yml
+docker-compose.prod.yml
+
+# ===================================
+# CLOUD & DEPLOYMENT
+# ===================================
+.vercel/
+.netlify/
+.firebase/
+.amplify/
+.aws/
+.gcp/
+.azure/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# ===================================
+# MONITORING & ANALYTICS
+# ===================================
+.sentryclirc
+.sentry-native/
+
+# ===================================
+# CACHE & OPTIMIZATION
+# ===================================
+# Cache directories (root and subdirectories)
+.cache/
+**/.cache/
+.parcel-cache/
+**/.parcel-cache/
+.eslintcache
+**/.eslintcache
+.stylelintcache
+**/.stylelintcache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Webpack
+.webpack/
+
+# Rollup
+.rollup.cache/
+
+# ===================================
+# FINANCIAL DATA & BACKUPS
+# ===================================
+# Market data files
+*.csv
+*.json.bak
+*.xml.bak
+market-data/
+historical-data/
+backups/
+*.backup
+
+# ===================================
+# SECURITY & CERTIFICATES
+# ===================================
+*.key
 *.pem
+*.crt
+*.cer
+*.p7b
+*.p7c
+*.pfx
+*.p12
+*.jks
+ssl/
+certs/
+certificates/
+
+# ===================================
+# MISC FILES
+# ===================================
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Archives
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Documentation builds
+docs/_build/
+site/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+
+# next.js build output
+.next
+
+# nuxt.js build output
+.nuxt
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# ===================================
+# PROJECT SPECIFIC
+# ===================================
+# Trading platform specific
+market-data-cache/
+analysis-cache/
+user-uploads/
+temp-reports/
+generated-reports/
+
+# AI model files (large files)
+*.model
+*.weights
+*.h5
+*.pkl
+*.joblib
+
+# Local development
+.local/
+.dev/
+localhost.*
