@@ -20,7 +20,7 @@ export class RAGService {
   private anthropic: Anthropic
   private embeddingService: EmbeddingService
   private logger: Logger
-  private indexName: string = 'financial-knowledge'
+  private indexName: string = 'yobi'
 
   constructor(
     logger: Logger,

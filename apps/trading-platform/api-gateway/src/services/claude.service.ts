@@ -9,15 +9,15 @@ interface KnowledgeBaseClient {
 
 // Simple HTTP client for knowledge base
 class SimpleKnowledgeClient implements KnowledgeBaseClient {
-  private baseUrl: string
+  private baseUrl: string;
 
-  constructor(baseUrl: string = 'http://localhost:3005') {
+  constructor(baseUrl: string = 'http://localhost:3002/api/knowledge') {
     this.baseUrl = baseUrl
   }
 
   async searchKnowledge(query: any): Promise<any> {
     try {
-      const response = await fetch(`${this.baseUrl}/knowledge/search`, {
+      const response = await fetch(`${this.baseUrl}/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(query)
@@ -80,7 +80,7 @@ export class ClaudeService {
               symbol: instrumentData.symbol,
               knowledgeUsed: enhancedResult.knowledgeUsed 
             })
-            return this.formatEnhancedAnalysis(enhancedResult.analysis)
+            return this.formatEnhancedAnalysis(enhancedResult.analysis, enhancedResult.knowledgeSources)
           }
         } catch (error) {
           this.logger.warn('RAG analysis failed, falling back to standard', { error })
@@ -107,31 +107,32 @@ export class ClaudeService {
     const prompt = this.buildStandardAnalysisPrompt(instrumentData, marketData, fundamentalData)
     
     const response = await this.anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 2000,
+      model: 'claude-3-5-sonnet-20240620',
+      max_tokens: 4000,
       messages: [{
         role: 'user',
         content: prompt
       }]
     })
 
-         const analysisText = (response.content[0] as any)?.text || ''
+    const analysisText = (response.content[0] as any)?.text || ''
     return this.parseAnalysisResponse(analysisText, instrumentData)
   }
 
   /**
    * Format enhanced RAG analysis to standard format
    */
-  private formatEnhancedAnalysis(analysis: any): any {
+  private formatEnhancedAnalysis(analysis: any, knowledgeSources: any[] = []): any {
     return {
       action: analysis.recommendation?.action || 'HOLD',
       targetPrice: analysis.recommendation?.targetPrice || analysis.valuation?.targetPrice,
       stopLoss: this.calculateStopLoss(analysis.recommendation?.targetPrice, analysis.risks),
       timeHorizon: analysis.recommendation?.timeHorizon || 'MEDIUM_TERM',
       confidence: analysis.recommendation?.confidence || 75,
-      rationale: analysis.executiveSummary || 'Professional analysis based on CFA frameworks',
+      rationale: analysis.executiveSummary || analysis.rationale || 'Professional analysis based on CFA frameworks',
       keyPoints: analysis.keyInsights || this.extractKeyPoints(analysis),
       risks: analysis.risks?.keyRiskFactors || ['Market volatility', 'Sector-specific risks'],
+      sources: knowledgeSources,
       cfaFrameworks: analysis.cfaFrameworks || [],
       enhancedAnalysis: true
     }
@@ -145,36 +146,49 @@ export class ClaudeService {
     marketData: any,
     fundamentalData?: any
   ): string {
+    const currency = instrumentData.exchange === 'NSE' ? 'INR' : 'USD'
+    const marketContext = instrumentData.exchange === 'NSE' ? 'Indian equity market' : 'US equity market'
+    
     return `
-As a financial analyst, provide an investment analysis for ${instrumentData.symbol}:
+As a senior equity research analyst providing institutional-grade investment analysis for ${instrumentData.name} (${instrumentData.symbol}) on ${instrumentData.exchange}.
 
-## Instrument Details
-- Symbol: ${instrumentData.symbol}
-- Name: ${instrumentData.name}
-- Exchange: ${instrumentData.exchange}
-- Sector: ${instrumentData.sector}
+## CURRENT MARKET POSITION
+- **Symbol**: ${instrumentData.symbol}
+- **Exchange**: ${instrumentData.exchange} (${marketContext})
+- **Current Price**: ${currency} ${marketData.close?.toLocaleString() || 'N/A'}
+- **24h Performance**: ${marketData.changePercent > 0 ? '+' : ''}${marketData.changePercent}%
+- **Trading Volume**: ${marketData.volume?.toLocaleString() || 'N/A'} shares
+- **Sector**: ${instrumentData.sector || 'Diversified'}
 
-## Market Data
-- Current Price: ${marketData.close}
-- Change: ${marketData.changePercent}%
-- Volume: ${marketData.volume}
-
-## Fundamental Data
+## QUANTITATIVE ANALYSIS SCORES
 ${fundamentalData ? `
-- P/E Ratio: ${fundamentalData.peRatio}
-- P/B Ratio: ${fundamentalData.pbRatio}
-- ROE: ${fundamentalData.roe}%
-- Debt/Equity: ${fundamentalData.debtToEquity}
-` : 'Limited fundamental data available'}
+- **Technical Score**: ${fundamentalData.technicalScore}/100 (Price momentum, RSI, MACD analysis)
+- **Fundamental Score**: ${fundamentalData.fundamentalScore}/100 (Valuation metrics, financial health)  
+- **Momentum Score**: ${fundamentalData.momentumScore}/100 (Market sentiment, volume analysis)
+- **Composite Score**: ${Math.round((fundamentalData.technicalScore * 0.4) + (fundamentalData.fundamentalScore * 0.35) + (fundamentalData.momentumScore * 0.25))}/100
+` : '- Limited quantitative data available'}
 
-Please provide:
-1. Investment recommendation (STRONG_BUY/BUY/HOLD/SELL/STRONG_SELL)
-2. Target price with rationale
-3. Key investment thesis points
-4. Main risks to consider
-5. Confidence level (1-100)
+## ANALYSIS REQUIREMENTS
+Provide a comprehensive investment analysis structured as a valid JSON object with these exact keys:
 
-Format as structured analysis with clear reasoning.
+- **"recommendation"**: String ("STRONG_BUY", "BUY", "HOLD", "SELL", or "STRONG_SELL")
+- **"confidence"**: Number (70-95 based on data quality and market conditions)
+- **"targetPrice"**: Number (calculated target based on analysis)
+- **"stopLoss"**: Number (appropriate risk management level)
+- **"investmentThesis"**: String (3-4 well-structured paragraphs with specific data points, market context, and quantitative backing. Include sector positioning, competitive advantages, and current market conditions impact. Reference trading volume of ${marketData.volume?.toLocaleString()} shares which indicates ${marketData.volume > 1000000 ? 'high institutional interest and liquidity' : marketData.volume > 100000 ? 'moderate liquidity and retail participation' : 'limited liquidity requiring careful position sizing'}.)
+- **"keyStrengths"**: Array of strings (4-5 data-backed strengths with specific metrics, percentages, or quantitative evidence. Each should include concrete numbers or market references.)
+- **"riskFactors"**: Array of strings (3-4 specific risks with market context, including sector headwinds, regulatory concerns, competitive pressures, or technical risk levels.)
+
+## KEY ANALYSIS PRINCIPLES
+1. **Data-Driven**: Every insight must reference specific metrics, scores, or market data
+2. **Contextual**: Consider ${marketContext} conditions and sector dynamics  
+3. **Quantitative**: Include actual numbers, percentages, and comparative analysis
+4. **Professional**: Use institutional-grade terminology and professional assessment standards
+5. **Actionable**: Provide concrete price targets and risk management levels
+
+Base calculations on current price of ${currency} ${marketData.close} and available quantitative scores.
+
+Output must be a single, valid JSON object with no additional text or formatting.
 `
   }
 
@@ -182,23 +196,23 @@ Format as structured analysis with clear reasoning.
    * Parse standard analysis response
    */
   private parseAnalysisResponse(analysisText: string, instrumentData: any): any {
-    // Try to extract structured information from text
-    const actionMatch = analysisText.match(/(STRONG_BUY|BUY|HOLD|SELL|STRONG_SELL)/i)
-    const priceMatch = analysisText.match(/target.*?(\d+(?:\.\d+)?)/i)
-    const confidenceMatch = analysisText.match(/confidence.*?(\d+)/i)
-
-    return {
-      action: actionMatch?.[1]?.toUpperCase() || 'HOLD',
-      targetPrice: priceMatch?.[1] ? parseFloat(priceMatch[1]) : null,
-      stopLoss: null,
-      timeHorizon: 'MEDIUM_TERM' as TimeHorizon,
-      confidence: confidenceMatch?.[1] ? parseInt(confidenceMatch[1]) : 75,
-      rationale: analysisText.length > 200 
-        ? analysisText.substring(0, 200) + '...'
-        : analysisText,
-      keyPoints: this.extractKeyPointsFromText(analysisText),
-      risks: this.extractRisksFromText(analysisText),
-      enhancedAnalysis: false
+    try {
+      const parsedJson = JSON.parse(analysisText)
+      return {
+        action: parsedJson.recommendation || 'HOLD',
+        targetPrice: parsedJson.targetPrice || null,
+        stopLoss: parsedJson.stopLoss || null,
+        timeHorizon: 'MEDIUM_TERM' as TimeHorizon,
+        confidence: parsedJson.confidence || 75,
+        rationale: parsedJson.investmentThesis || 'No rationale provided.',
+        keyPoints: parsedJson.keyStrengths || [],
+        risks: parsedJson.riskFactors || [],
+        enhancedAnalysis: false,
+        sources: [],
+      }
+    } catch (error) {
+      this.logger.error('Failed to parse Claude JSON response', { error, analysisText })
+      return this.generateFallbackAnalysis(instrumentData)
     }
   }
 

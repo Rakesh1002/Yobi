@@ -33,8 +33,12 @@ export function calculateEMA(values: number[], period: number): number[] {
   
   // Calculate EMA for remaining values
   for (let i = period; i < values.length; i++) {
-    const emaValue = (values[i] - ema[ema.length - 1]) * multiplier + ema[ema.length - 1]
-    ema.push(emaValue)
+    const currentValue = values[i]
+    const previousEma = ema[ema.length - 1]
+    if (currentValue !== undefined && previousEma !== undefined) {
+      const emaValue = (currentValue - previousEma) * multiplier + previousEma
+      ema.push(emaValue)
+    }
   }
   
   return ema
@@ -52,9 +56,13 @@ export function calculateRSI(values: number[], period: number = 14): number[] {
   
   // Calculate price changes
   for (let i = 1; i < values.length; i++) {
-    const change = values[i] - values[i - 1]
-    gains.push(change > 0 ? change : 0)
-    losses.push(change < 0 ? Math.abs(change) : 0)
+    const currentValue = values[i]
+    const previousValue = values[i - 1]
+    if (currentValue !== undefined && previousValue !== undefined) {
+      const change = currentValue - previousValue
+      gains.push(change > 0 ? change : 0)
+      losses.push(change < 0 ? Math.abs(change) : 0)
+    }
   }
   
   // Calculate initial average gain and loss
@@ -63,11 +71,15 @@ export function calculateRSI(values: number[], period: number = 14): number[] {
   
   // Calculate RSI
   for (let i = period; i < gains.length; i++) {
-    avgGain = (avgGain * (period - 1) + gains[i]) / period
-    avgLoss = (avgLoss * (period - 1) + losses[i]) / period
-    
-    const rs = avgLoss === 0 ? 100 : avgGain / avgLoss
-    rsi.push(100 - (100 / (1 + rs)))
+    const currentGain = gains[i]
+    const currentLoss = losses[i]
+    if (currentGain !== undefined && currentLoss !== undefined) {
+      avgGain = (avgGain * (period - 1) + currentGain) / period
+      avgLoss = (avgLoss * (period - 1) + currentLoss) / period
+      
+      const rs = avgLoss === 0 ? 100 : avgGain / avgLoss
+      rsi.push(100 - (100 / (1 + rs)))
+    }
   }
   
   return rsi
@@ -94,7 +106,11 @@ export function calculateMACD(
   const startIndex = slowPeriod - fastPeriod
   
   for (let i = 0; i < Math.min(emaFast.length - startIndex, emaSlow.length); i++) {
-    macd.push(emaFast[i + startIndex] - emaSlow[i])
+    const fastValue = emaFast[i + startIndex]
+    const slowValue = emaSlow[i]
+    if (fastValue !== undefined && slowValue !== undefined) {
+      macd.push(fastValue - slowValue)
+    }
   }
   
   // Calculate signal line
@@ -103,7 +119,11 @@ export function calculateMACD(
   // Calculate histogram
   const histogram: number[] = []
   for (let i = 0; i < signal.length; i++) {
-    histogram.push(macd[i + signalPeriod - 1] - signal[i])
+    const macdValue = macd[i + signalPeriod - 1]
+    const signalValue = signal[i]
+    if (macdValue !== undefined && signalValue !== undefined) {
+      histogram.push(macdValue - signalValue)
+    }
   }
   
   return { macd, signal, histogram }
@@ -129,12 +149,16 @@ export function calculateBollingerBands(
     const slice = values.slice(i - period + 1, i + 1)
     const avg = middle[i - period + 1]
     
-    // Calculate standard deviation
-    const variance = slice.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / period
-    const stdDev = Math.sqrt(variance)
-    
-    upper.push(avg + standardDeviations * stdDev)
-    lower.push(avg - standardDeviations * stdDev)
+    if (avg !== undefined) {
+      // Calculate standard deviation
+      const variance = slice.reduce((sum, val) => {
+        return val !== undefined ? sum + Math.pow(val - avg, 2) : sum
+      }, 0) / period
+      const stdDev = Math.sqrt(variance)
+      
+      upper.push(avg + standardDeviations * stdDev)
+      lower.push(avg - standardDeviations * stdDev)
+    }
   }
   
   return { upper, middle, lower }
@@ -150,11 +174,16 @@ export function calculateATR(candles: OHLCV[], period: number = 14): number[] {
   
   // Calculate True Range
   for (let i = 1; i < candles.length; i++) {
-    const highLow = candles[i].high - candles[i].low
-    const highPrevClose = Math.abs(candles[i].high - candles[i - 1].close)
-    const lowPrevClose = Math.abs(candles[i].low - candles[i - 1].close)
+    const currentCandle = candles[i]
+    const previousCandle = candles[i - 1]
     
-    trueRanges.push(Math.max(highLow, highPrevClose, lowPrevClose))
+    if (currentCandle && previousCandle) {
+      const highLow = currentCandle.high - currentCandle.low
+      const highPrevClose = Math.abs(currentCandle.high - previousCandle.close)
+      const lowPrevClose = Math.abs(currentCandle.low - previousCandle.close)
+      
+      trueRanges.push(Math.max(highLow, highPrevClose, lowPrevClose))
+    }
   }
   
   // Calculate ATR using EMA
@@ -178,12 +207,19 @@ export function calculateStochastic(
   
   for (let i = kPeriod - 1; i < candles.length; i++) {
     const slice = candles.slice(i - kPeriod + 1, i + 1)
-    const highestHigh = Math.max(...slice.map(c => c.high))
-    const lowestLow = Math.min(...slice.map(c => c.low))
+    const validCandles = slice.filter(c => c !== undefined)
     
-    const currentClose = candles[i].close
-    const kValue = ((currentClose - lowestLow) / (highestHigh - lowestLow)) * 100
-    k.push(kValue)
+    if (validCandles.length === slice.length) {
+      const highestHigh = Math.max(...validCandles.map(c => c.high))
+      const lowestLow = Math.min(...validCandles.map(c => c.low))
+      
+      const currentCandle = candles[i]
+      if (currentCandle) {
+        const currentClose = currentCandle.close
+        const kValue = ((currentClose - lowestLow) / (highestHigh - lowestLow)) * 100
+        k.push(kValue)
+      }
+    }
   }
   
   const d = calculateSMA(k, dPeriod)

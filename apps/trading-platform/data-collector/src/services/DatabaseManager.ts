@@ -177,36 +177,24 @@ export class DatabaseManager {
       // Ensure the instrument exists
       await this.ensureInstrument(symbol, exchange, currency)
 
-      // TODO: Fix fundamental data schema fields
-      // Store fundamental data
-      /*await prisma.fundamentalData.upsert({
+      // Store fundamental data with corrected schema
+      await prisma.fundamentalData.upsert({
         where: {
           instrumentId: symbol.toUpperCase()
         },
         update: {
-          marketCap: data.marketCap || 0,
-          peRatio: data.peRatio || 0,
-          pegRatio: data.pegRatio || 0,
-          psRatio: data.psRatio || 0,
-          pbRatio: data.pbRatio || 0,
-          evToRevenue: data.evToRevenue || 0,
-          evToEbitda: data.evToEbitda || 0,
-          beta: data.beta || 0,
-          eps: data.eps || 0,
-          epsGrowth: data.epsGrowth || 0,
-          revenue: data.revenue || 0,
-          revenueGrowth: data.revenueGrowth || 0,
-          grossProfit: data.grossProfit || 0,
-          grossMargin: data.grossMargin || 0,
-          operatingMargin: data.operatingMargin || 0,
-          netMargin: data.netMargin || 0,
-          roe: data.roe || 0,
-          roa: data.roa || 0,
-          debtToEquity: data.debtToEquity || 0,
-          currentRatio: data.currentRatio || 0,
-          quickRatio: data.quickRatio || 0,
-          dividendYield: data.dividendYield || 0,
-          payoutRatio: data.payoutRatio || 0,
+          marketCap: data.marketCap || null,
+          peRatio: data.peRatio || null,
+          pbRatio: data.pbRatio || null,
+          debtToEquity: data.debtToEquity || null,
+          roe: data.roe || null,
+          eps: data.eps || null,
+          revenue: data.revenue || null,
+          revenueGrowth: data.revenueGrowth || null,
+          netMargin: data.netMargin || null,
+          dividendYield: data.dividendYield || null,
+          beta: data.beta || null,
+          data: data, // Store all data as JSON
           lastUpdated: new Date()
         },
         create: {
@@ -218,35 +206,23 @@ export class DatabaseManager {
               }
             }
           },
-          marketCap: data.marketCap || 0,
-          enterpriseValue: data.enterpriseValue || 0,
-          peRatio: data.peRatio || 0,
-          pegRatio: data.pegRatio || 0,
-          psRatio: data.psRatio || 0,
-          pbRatio: data.pbRatio || 0,
-          evToRevenue: data.evToRevenue || 0,
-          evToEbitda: data.evToEbitda || 0,
-          beta: data.beta || 0,
-          eps: data.eps || 0,
-          epsGrowth: data.epsGrowth || 0,
-          revenue: data.revenue || 0,
-          revenueGrowth: data.revenueGrowth || 0,
-          grossProfit: data.grossProfit || 0,
-          grossMargin: data.grossMargin || 0,
-          operatingMargin: data.operatingMargin || 0,
-          netMargin: data.netMargin || 0,
-          roe: data.roe || 0,
-          roa: data.roa || 0,
-          debtToEquity: data.debtToEquity || 0,
-          currentRatio: data.currentRatio || 0,
-          quickRatio: data.quickRatio || 0,
-          dividendYield: data.dividendYield || 0,
-          payoutRatio: data.payoutRatio || 0,
+          marketCap: data.marketCap || null,
+          peRatio: data.peRatio || null,
+          pbRatio: data.pbRatio || null,
+          debtToEquity: data.debtToEquity || null,
+          roe: data.roe || null,
+          eps: data.eps || null,
+          revenue: data.revenue || null,
+          revenueGrowth: data.revenueGrowth || null,
+          netMargin: data.netMargin || null,
+          dividendYield: data.dividendYield || null,
+          beta: data.beta || null,
+          data: data, // Store all data as JSON
           lastUpdated: new Date()
         }
-      })*/
+      })
 
-      logger.info(`Skipped fundamental data storage for ${symbol} (schema needs fixing)`)
+      logger.info(`Stored fundamental data for ${symbol}`)
     } catch (error) {
       logger.error(`Failed to store fundamental data for ${symbol}:`, error)
       throw error

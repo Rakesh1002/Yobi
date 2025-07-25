@@ -43,7 +43,34 @@ export class CacheService {
 
   async set(key: string, value: any, ttlSeconds?: number): Promise<void> {
     try {
-      const serializedValue = typeof value === 'string' ? value : JSON.stringify(value)
+      let serializedValue: string
+      
+      if (typeof value === 'string') {
+        serializedValue = value
+      } else {
+        try {
+          // Ensure proper JSON serialization
+          serializedValue = JSON.stringify(value, (key, val) => {
+            // Handle circular references and functions
+            if (typeof val === 'function') return '[Function]'
+            if (val === undefined) return null
+            return val
+          })
+        } catch (serializationError) {
+          logger.warn(`Failed to serialize value for cache key ${key}:`, serializationError)
+          return // Skip caching if we can't serialize
+        }
+      }
+
+      // Validate that we can parse what we're about to store
+      if (typeof value !== 'string') {
+        try {
+          JSON.parse(serializedValue)
+        } catch (testParseError) {
+          logger.warn(`Invalid JSON being stored for cache key ${key}, skipping cache`)
+          return
+        }
+      }
 
       switch (this.cacheType) {
         case 'upstash':
@@ -90,7 +117,29 @@ export class CacheService {
   async getJSON(key: string): Promise<any> {
     try {
       const value = await this.get(key)
-      return value ? JSON.parse(value) : null
+      if (!value) return null
+      
+      // Ensure value is a string before calling string methods
+      if (typeof value !== 'string') {
+        logger.warn(`Cache value for key ${key} is not a string, clearing cache entry`)
+        await this.del(key)
+        return null
+      }
+      
+      // Handle malformed JSON
+      if (value === '[object Object]' || value.startsWith('[object ')) {
+        logger.warn(`Malformed cache value for key ${key}, clearing cache entry`)
+        await this.del(key) // Clear the bad cache entry
+        return null
+      }
+      
+      try {
+        return JSON.parse(value)
+      } catch (parseError) {
+        logger.warn(`Invalid JSON in cache for key ${key}:`, parseError)
+        await this.del(key) // Clear the bad cache entry
+        return null
+      }
     } catch (error) {
       logger.error(`Cache getJSON failed for key ${key}:`, error)
       return null
@@ -133,6 +182,45 @@ export class CacheService {
       logger.error('Cache ping failed:', error)
       return false
     }
+  }
+
+  async clearCorruptedEntries(pattern: string = '*'): Promise<number> {
+    if (this.cacheType === 'none') return 0
+    
+    let cleared = 0
+    try {
+      let keys: string[] = []
+      
+      switch (this.cacheType) {
+        case 'upstash':
+          // Upstash doesn't support SCAN, so we'll skip for now
+          break
+        case 'ioredis':
+          keys = await this.ioRedis!.keys(pattern)
+          break
+      }
+
+      for (const key of keys) {
+        try {
+          const value = await this.get(key)
+          if (value && typeof value === 'string') {
+            // Try to parse as JSON
+            if (value.startsWith('{') || value.startsWith('[')) {
+              JSON.parse(value)
+            }
+          }
+        } catch (error) {
+          // If we can't parse it, it's corrupted
+          await this.del(key)
+          cleared++
+          logger.info(`Cleared corrupted cache entry: ${key}`)
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to clear corrupted cache entries:', error)
+    }
+    
+    return cleared
   }
 
   isEnabled(): boolean {

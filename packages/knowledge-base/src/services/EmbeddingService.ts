@@ -6,6 +6,7 @@ export class EmbeddingService {
   private logger: Logger
   private model: string = 'text-embedding-3-small' // Latest OpenAI embedding model
   private maxTokens: number = 8191 // Model token limit
+  private targetDimensions: number = 1024 // Target dimensions for Pinecone index
 
   constructor(logger: Logger, apiKey?: string) {
     this.logger = logger
@@ -34,13 +35,17 @@ export class EmbeddingService {
         throw new Error('Failed to generate embedding: No embedding data returned')
       }
       
+      // Adapt dimensions to match Pinecone index
+      const adaptedEmbedding = this.adaptDimensions(embedding)
+
       this.logger.debug('Generated embedding', { 
         textLength: text.length,
         truncatedLength: truncatedText.length,
-        embeddingDimensions: embedding.length 
+        originalDimensions: embedding.length,
+        adaptedDimensions: adaptedEmbedding.length
       })
 
-      return embedding
+      return adaptedEmbedding
 
     } catch (error) {
       this.logger.error('Failed to generate embedding', { 
@@ -72,7 +77,7 @@ export class EmbeddingService {
           encoding_format: 'float'
         })
 
-        const batchEmbeddings = response.data.map(item => item.embedding)
+        const batchEmbeddings = response.data.map(item => this.adaptDimensions(item.embedding))
         embeddings.push(...batchEmbeddings)
 
         this.logger.info(`Generated embeddings for batch ${Math.floor(i / batchSize) + 1}`, {
@@ -97,8 +102,8 @@ export class EmbeddingService {
             await this.delay(200) // Smaller delay for individual requests
           } catch (individualError) {
             this.logger.warn('Failed to generate individual embedding, using zero vector', { individualError })
-            // Use zero vector as fallback
-            embeddings.push(new Array(1536).fill(0)) // text-embedding-3-small has 1536 dimensions
+            // Use zero vector as fallback with target dimensions
+            embeddings.push(new Array(this.targetDimensions).fill(0))
           }
         }
       }
@@ -152,14 +157,15 @@ export class EmbeddingService {
   /**
    * Get embedding model information
    */
-  getModelInfo(): { model: string; dimensions: number; maxTokens: number } {
-    const dimensions = this.model === 'text-embedding-3-small' ? 1536 : 
-                     this.model === 'text-embedding-3-large' ? 3072 : 1536
+  getModelInfo(): { model: string; dimensions: number; maxTokens: number; targetDimensions: number } {
+    const originalDimensions = this.model === 'text-embedding-3-small' ? 1536 : 
+                              this.model === 'text-embedding-3-large' ? 3072 : 1536
 
     return {
       model: this.model,
-      dimensions,
-      maxTokens: this.maxTokens
+      dimensions: originalDimensions,
+      maxTokens: this.maxTokens,
+      targetDimensions: this.targetDimensions
     }
   }
 
@@ -203,6 +209,37 @@ export class EmbeddingService {
     }
 
     return truncated
+  }
+
+  /**
+   * Adapt embedding dimensions to match Pinecone index
+   */
+  private adaptDimensions(embedding: number[]): number[] {
+    if (embedding.length === this.targetDimensions) {
+      return embedding
+    }
+
+    if (embedding.length > this.targetDimensions) {
+      // Truncate to target dimensions (maintains most important features)
+      this.logger.debug(`Truncating embedding from ${embedding.length} to ${this.targetDimensions} dimensions`)
+      return embedding.slice(0, this.targetDimensions)
+    } else {
+      // Pad with zeros if somehow shorter (shouldn't happen with standard models)
+      this.logger.warn(`Padding embedding from ${embedding.length} to ${this.targetDimensions} dimensions`)
+      const padded = [...embedding]
+      while (padded.length < this.targetDimensions) {
+        padded.push(0)
+      }
+      return padded
+    }
+  }
+
+  /**
+   * Configure target dimensions for the vector database
+   */
+  setTargetDimensions(dimensions: number): void {
+    this.targetDimensions = dimensions
+    this.logger.info('Updated target dimensions', { targetDimensions: dimensions })
   }
 
   /**

@@ -1,85 +1,85 @@
-import { PrismaClient, Exchange } from '@prisma/client'
-import { createLogger } from '../utils/logger'
+import { PrismaClient, Exchange } from "@prisma/client";
+import { createLogger } from "../utils/logger";
 
-const logger = createLogger('database-service')
+const logger = createLogger("database-service");
 
 export interface InstrumentInfo {
-  id: string
-  symbol: string
-  name: string
-  exchange: string
-  currency: string
-  assetClass: string
-  sector?: string
-  industry?: string
+  id: string;
+  symbol: string;
+  name: string;
+  exchange: string;
+  currency: string;
+  assetClass: string;
+  sector?: string;
+  industry?: string;
 }
 
 // New interfaces for storage operations
 export interface CreateSearchResultData {
-  instrumentId: string
-  query: string
-  title: string
-  url: string
-  snippet?: string
-  provider: string
-  relevanceScore: number
-  publishedDate?: Date | null
-  contentType?: string
-  domain?: string
-  metadata: any
+  instrumentId: string;
+  query: string;
+  title: string;
+  url: string;
+  snippet?: string;
+  provider: string;
+  relevanceScore: number;
+  publishedDate?: Date | null;
+  contentType?: string;
+  domain?: string;
+  metadata: any;
 }
 
 export interface CreateDocumentData {
-  instrumentId: string
-  title: string
-  url: string
-  documentType: string
-  filingType?: string
-  publishedDate?: Date | null
-  status: string
-  s3Key?: string
-  s3Bucket?: string
-  contentHash?: string
-  fileSize?: bigint | null
-  extractedText?: string
-  summary?: string | null
-  keyPoints: string[]
-  sourceProvider: string
-  sourceUrl: string
-  metadata: any
+  instrumentId: string;
+  title: string;
+  url: string;
+  documentType: string;
+  filingType?: string;
+  publishedDate?: Date | null;
+  status: string;
+  s3Key?: string;
+  s3Bucket?: string;
+  contentHash?: string;
+  fileSize?: bigint | null;
+  extractedText?: string;
+  summary?: string | null;
+  keyPoints: string[];
+  sourceProvider: string;
+  sourceUrl: string;
+  metadata: any;
 }
 
 export interface CreateInsightData {
-  instrumentId: string
-  analysisType: string
-  recommendation: string
-  confidence: number
-  targetPrice?: number
-  stopLoss?: number
-  timeHorizon: string
-  summary: string
-  keyInsights: string[]
-  risks: string[]
-  opportunities: string[]
-  rationale: string
-  sourcesUsed: any
-  dataQuality: number
-  dataFreshness: Date
-  validUntil?: Date | null
-  modelVersion?: string
-  tokenCount?: number
+  instrumentId: string;
+  analysisType: string;
+  recommendation: string;
+  confidence: number;
+  targetPrice?: number;
+  stopLoss?: number;
+  timeHorizon: string;
+  summary: string;
+  keyInsights: string[];
+  risks: string[];
+  opportunities: string[];
+  rationale: string;
+  sourcesUsed: any;
+  dataQuality: number;
+  dataFreshness: Date;
+  validUntil?: Date | null;
+  modelVersion?: string;
+  tokenCount?: number;
 }
 
 export class DatabaseService {
-  private prisma: PrismaClient
+  private prisma: PrismaClient;
 
   constructor() {
     try {
-      this.prisma = new PrismaClient()
-      logger.info('Database service initialized')
+      this.prisma = new PrismaClient();
+      logger.info("Database service initialized");
     } catch (error) {
-      logger.error('Failed to initialize database service:', error)
-      throw error
+      logger.error("Failed to initialize database service:", error);
+      throw error;
     }
   }
 
@@ -90,15 +90,12 @@ export class DatabaseService {
     try {
       const instruments = await this.prisma.instrument.findMany({
         where: {
-          isActive: true
+          isActive: true,
         },
-        orderBy: [
-          { exchange: 'asc' },
-          { symbol: 'asc' }
-        ]
-      })
+        orderBy: [{ exchange: "asc" }, { symbol: "asc" }],
+      });
 
-      return instruments.map(instrument => ({
+      return instruments.map((instrument) => ({
         id: instrument.id,
         symbol: instrument.symbol,
         name: instrument.name,
@@ -106,14 +103,13 @@ export class DatabaseService {
         currency: instrument.currency,
         assetClass: instrument.assetClass,
         sector: instrument.sector || undefined,
-        industry: instrument.industry || undefined
-      }))
-
+        industry: instrument.industry || undefined,
+      }));
     } catch (error) {
-      logger.error('Failed to get active instruments:', error)
-      
+      logger.error("Failed to get active instruments:", error);
+
       // Return fallback instruments if database fails
-      return this.getFallbackInstruments()
+      return this.getFallbackInstruments();
     }
   }
 
@@ -125,12 +121,12 @@ export class DatabaseService {
       const instruments = await this.prisma.instrument.findMany({
         where: {
           exchange: exchange as Exchange,
-          isActive: true
+          isActive: true,
         },
-        orderBy: { symbol: 'asc' }
-      })
+        orderBy: { symbol: "asc" },
+      });
 
-      return instruments.map(instrument => ({
+      return instruments.map((instrument) => ({
         id: instrument.id,
         symbol: instrument.symbol,
         name: instrument.name,
@@ -138,12 +134,14 @@ export class DatabaseService {
         currency: instrument.currency,
         assetClass: instrument.assetClass,
         sector: instrument.sector || undefined,
-        industry: instrument.industry || undefined
-      }))
-
+        industry: instrument.industry || undefined,
+      }));
     } catch (error) {
-      logger.error(`Failed to get instruments for exchange ${exchange}:`, error)
-      return []
+      logger.error(
+        `Failed to get instruments for exchange ${exchange}:`,
+        error
+      );
+      return [];
     }
   }
 
@@ -156,15 +154,13 @@ export class DatabaseService {
       // This can be enhanced with actual priority logic
       const instruments = await this.prisma.instrument.findMany({
         where: {
-          isActive: true
+          isActive: true,
         },
-        orderBy: [
-          { updatedAt: 'desc' }
-        ],
-        take: limit
-      })
+        orderBy: [{ updatedAt: "desc" }],
+        take: limit,
+      });
 
-      return instruments.map(instrument => ({
+      return instruments.map((instrument) => ({
         id: instrument.id,
         symbol: instrument.symbol,
         name: instrument.name,
@@ -172,48 +168,49 @@ export class DatabaseService {
         currency: instrument.currency,
         assetClass: instrument.assetClass,
         sector: instrument.sector || undefined,
-        industry: instrument.industry || undefined
-      }))
-
+        industry: instrument.industry || undefined,
+      }));
     } catch (error) {
-      logger.error('Failed to get priority instruments:', error)
-      return this.getFallbackInstruments().slice(0, limit)
+      logger.error("Failed to get priority instruments:", error);
+      return this.getFallbackInstruments().slice(0, limit);
     }
   }
 
   /**
    * Get instruments that need document updates
    */
-  async getInstrumentsNeedingDocumentUpdate(limit: number = 30): Promise<InstrumentInfo[]> {
+  async getInstrumentsNeedingDocumentUpdate(
+    limit: number = 30
+  ): Promise<InstrumentInfo[]> {
     try {
       // Get instruments with no recent document updates (last 24 hours)
-      const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000)
-      
+      const cutoffDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
       const instruments = await this.prisma.instrument.findMany({
         where: {
           isActive: true,
           OR: [
             {
               documents: {
-                none: {}
-              }
+                none: {},
+              },
             },
             {
               documents: {
                 none: {
                   createdAt: {
-                    gte: cutoffDate
-                  }
-                }
-              }
-            }
-          ]
+                    gte: cutoffDate,
+                  },
+                },
+              },
+            },
+          ],
         },
         take: limit,
-        orderBy: { symbol: 'asc' }
-      })
+        orderBy: { symbol: "asc" },
+      });
 
-      return instruments.map(instrument => ({
+      return instruments.map((instrument) => ({
         id: instrument.id,
         symbol: instrument.symbol,
         name: instrument.name,
@@ -221,12 +218,14 @@ export class DatabaseService {
         currency: instrument.currency,
         assetClass: instrument.assetClass,
         sector: instrument.sector || undefined,
-        industry: instrument.industry || undefined
-      }))
-
+        industry: instrument.industry || undefined,
+      }));
     } catch (error) {
-      logger.error('Failed to get instruments needing document updates:', error)
-      return this.getFallbackInstruments().slice(0, limit)
+      logger.error(
+        "Failed to get instruments needing document updates:",
+        error
+      );
+      return this.getFallbackInstruments().slice(0, limit);
     }
   }
 
@@ -235,19 +234,19 @@ export class DatabaseService {
    */
   async instrumentExists(symbol: string, exchange?: string): Promise<boolean> {
     try {
-      const whereClause: any = { symbol }
+      const whereClause: any = { symbol };
       if (exchange) {
-        whereClause.exchange = exchange
+        whereClause.exchange = exchange;
       }
 
       const count = await this.prisma.instrument.count({
-        where: whereClause
-      })
+        where: whereClause,
+      });
 
-      return count > 0
+      return count > 0;
     } catch (error) {
-      logger.error(`Failed to check if instrument exists: ${symbol}`, error)
-      return false
+      logger.error(`Failed to check if instrument exists: ${symbol}`, error);
+      return false;
     }
   }
 
@@ -260,16 +259,19 @@ export class DatabaseService {
         where: { symbol },
         include: {
           marketData: {
-            orderBy: { timestamp: 'desc' },
-            take: 1
-          }
-        }
-      })
+            orderBy: { timestamp: "desc" },
+            take: 1,
+          },
+        },
+      });
 
-      return instrument?.marketData[0]?.timestamp || null
+      return instrument?.marketData[0]?.timestamp || null;
     } catch (error) {
-      logger.error(`Failed to get last market data update for ${symbol}:`, error)
-      return null
+      logger.error(
+        `Failed to get last market data update for ${symbol}:`,
+        error
+      );
+      return null;
     }
   }
 
@@ -278,8 +280,8 @@ export class DatabaseService {
    */
   async getEarningsCalendarSymbols(date?: Date): Promise<string[]> {
     // Mock implementation - in real scenario, this would query earnings calendar
-    const mockSymbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
-    return mockSymbols
+    const mockSymbols = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"];
+    return mockSymbols;
   }
 
   // === NEW STORAGE METHODS ===
@@ -302,9 +304,9 @@ export class DatabaseService {
           contentType: data.contentType,
           domain: data.domain,
           metadata: data.metadata,
-          discoveredAt: new Date()
-        }
-      })
+          discoveredAt: new Date(),
+        },
+      });
 
       return {
         id: result.id,
@@ -316,11 +318,11 @@ export class DatabaseService {
         provider: result.provider,
         relevanceScore: result.relevanceScore,
         publishedDate: result.publishedDate,
-        metadata: result.metadata
-      }
+        metadata: result.metadata,
+      };
     } catch (error) {
-      logger.error('Failed to create search result:', error)
-      throw error
+      logger.error("Failed to create search result:", error);
+      throw error;
     }
   }
 
@@ -334,12 +336,12 @@ export class DatabaseService {
           instrumentId_url_provider: {
             instrumentId,
             url,
-            provider: provider as any
-          }
-        }
-      })
+            provider: provider as any,
+          },
+        },
+      });
 
-      if (!result) return null
+      if (!result) return null;
 
       return {
         id: result.id,
@@ -351,11 +353,11 @@ export class DatabaseService {
         provider: result.provider,
         relevanceScore: result.relevanceScore,
         publishedDate: result.publishedDate,
-        metadata: result.metadata
-      }
+        metadata: result.metadata,
+      };
     } catch (error) {
-      logger.error('Failed to find search result:', error)
-      return null
+      logger.error("Failed to find search result:", error);
+      return null;
     }
   }
 
@@ -383,9 +385,9 @@ export class DatabaseService {
           sourceProvider: data.sourceProvider as any,
           sourceUrl: data.sourceUrl,
           metadata: data.metadata,
-          discoveredAt: new Date()
-        }
-      })
+          discoveredAt: new Date(),
+        },
+      });
 
       return {
         id: document.id,
@@ -399,11 +401,11 @@ export class DatabaseService {
         extractedText: document.extractedText,
         summary: document.summary,
         metadata: document.metadata,
-        status: document.status
-      }
+        status: document.status,
+      };
     } catch (error) {
-      logger.error('Failed to create document:', error)
-      throw error
+      logger.error("Failed to create document:", error);
+      throw error;
     }
   }
 
@@ -416,12 +418,12 @@ export class DatabaseService {
         where: {
           instrumentId_contentHash: {
             instrumentId,
-            contentHash
-          }
-        }
-      })
+            contentHash,
+          },
+        },
+      });
 
-      if (!document) return null
+      if (!document) return null;
 
       return {
         id: document.id,
@@ -435,11 +437,11 @@ export class DatabaseService {
         extractedText: document.extractedText,
         summary: document.summary,
         metadata: document.metadata,
-        status: document.status
-      }
+        status: document.status,
+      };
     } catch (error) {
-      logger.error('Failed to find document by hash:', error)
-      return null
+      logger.error("Failed to find document by hash:", error);
+      return null;
     }
   }
 
@@ -468,9 +470,9 @@ export class DatabaseService {
           validUntil: data.validUntil,
           modelVersion: data.modelVersion,
           tokenCount: data.tokenCount,
-          generatedAt: new Date()
-        }
-      })
+          generatedAt: new Date(),
+        },
+      });
 
       return {
         id: insight.id,
@@ -485,11 +487,11 @@ export class DatabaseService {
         rationale: insight.rationale,
         sourcesUsed: insight.sourcesUsed,
         dataQuality: insight.dataQuality,
-        validUntil: insight.validUntil
-      }
+        validUntil: insight.validUntil,
+      };
     } catch (error) {
-      logger.error('Failed to create insight:', error)
-      throw error
+      logger.error("Failed to create insight:", error);
+      throw error;
     }
   }
 
@@ -502,14 +504,14 @@ export class DatabaseService {
         where: {
           instrumentId,
           analysisType: analysisType as any,
-          isActive: true
+          isActive: true,
         },
         data: {
-          isActive: false
-        }
-      })
+          isActive: false,
+        },
+      });
     } catch (error) {
-      logger.error('Failed to deactivate insights:', error)
+      logger.error("Failed to deactivate insights:", error);
     }
   }
 
@@ -520,11 +522,11 @@ export class DatabaseService {
     try {
       const results = await this.prisma.searchResult.findMany({
         where: { instrumentId },
-        orderBy: { discoveredAt: 'desc' },
-        take: limit
-      })
+        orderBy: { discoveredAt: "desc" },
+        take: limit,
+      });
 
-      return results.map(result => ({
+      return results.map((result) => ({
         id: result.id,
         instrumentId: result.instrumentId,
         query: result.query,
@@ -534,31 +536,35 @@ export class DatabaseService {
         provider: result.provider,
         relevanceScore: result.relevanceScore,
         publishedDate: result.publishedDate,
-        metadata: result.metadata
-      }))
+        metadata: result.metadata,
+      }));
     } catch (error) {
-      logger.error('Failed to get search results:', error)
-      return []
+      logger.error("Failed to get search results:", error);
+      return [];
     }
   }
 
   /**
    * Get documents for instrument
    */
-  async getDocuments(instrumentId: string, documentType?: string, limit: number = 50) {
+  async getDocuments(
+    instrumentId: string,
+    documentType?: string,
+    limit: number = 50
+  ) {
     try {
-      const whereClause: any = { instrumentId }
+      const whereClause: any = { instrumentId };
       if (documentType) {
-        whereClause.documentType = documentType
+        whereClause.documentType = documentType;
       }
 
       const documents = await this.prisma.document.findMany({
         where: whereClause,
-        orderBy: { discoveredAt: 'desc' },
-        take: limit
-      })
+        orderBy: { discoveredAt: "desc" },
+        take: limit,
+      });
 
-      return documents.map(doc => ({
+      return documents.map((doc) => ({
         id: doc.id,
         instrumentId: doc.instrumentId,
         title: doc.title,
@@ -570,11 +576,11 @@ export class DatabaseService {
         extractedText: doc.extractedText,
         summary: doc.summary,
         metadata: doc.metadata,
-        status: doc.status
-      }))
+        status: doc.status,
+      }));
     } catch (error) {
-      logger.error('Failed to get documents:', error)
-      return []
+      logger.error("Failed to get documents:", error);
+      return [];
     }
   }
 
@@ -586,12 +592,12 @@ export class DatabaseService {
       const insight = await this.prisma.aiInsight.findFirst({
         where: {
           instrumentId,
-          isActive: true
+          isActive: true,
         },
-        orderBy: { generatedAt: 'desc' }
-      })
+        orderBy: { generatedAt: "desc" },
+      });
 
-      if (!insight) return null
+      if (!insight) return null;
 
       return {
         id: insight.id,
@@ -606,11 +612,139 @@ export class DatabaseService {
         rationale: insight.rationale,
         sourcesUsed: insight.sourcesUsed,
         dataQuality: insight.dataQuality,
-        validUntil: insight.validUntil
-      }
+        validUntil: insight.validUntil,
+      };
     } catch (error) {
-      logger.error('Failed to get latest insights:', error)
-      return null
+      logger.error("Failed to get latest insights:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get instruments with characteristics for dynamic scheduling
+   */
+  async getInstrumentsWithCharacteristics(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT 
+          i.symbol,
+          i.name,
+          i.exchange,
+          i."assetClass",
+          i.sector,
+          md.volume,
+          md."changePercent",
+          md.close as "currentPrice",
+          md.timestamp as "lastMarketData"
+        FROM "Instrument" i
+        LEFT JOIN LATERAL (
+          SELECT volume, "changePercent", close, timestamp
+          FROM "MarketData" 
+          WHERE "instrumentId" = i.id 
+          ORDER BY timestamp DESC 
+          LIMIT 1
+        ) md ON true
+        WHERE i."isActive" = true
+        ORDER BY 
+          CASE 
+            WHEN md.timestamp IS NOT NULL THEN md.timestamp 
+            ELSE i."createdAt" 
+          END DESC,
+          CASE 
+            WHEN md.volume IS NOT NULL THEN md.volume 
+            ELSE 0 
+          END DESC
+      `;
+
+      const result = await this.prisma.$queryRawUnsafe(query);
+
+      // Calculate additional characteristics
+      return (result as any[]).map((instrument) => ({
+        ...instrument,
+        volume24h: instrument.volume || 0,
+        volatility: Math.abs(instrument.changePercent || 0), // Use absolute change as volatility proxy
+        marketCap: this.estimateMarketCap(instrument),
+        lastUpdated:
+          instrument.lastMarketData ||
+          new Date(Date.now() - 24 * 60 * 60 * 1000), // Default to yesterday
+      }));
+    } catch (error) {
+      logger.error("Failed to get instruments with characteristics:", error);
+
+      // Fallback: get basic instrument data
+      const instruments = await this.getActiveInstruments();
+      return instruments.map((instrument) => ({
+        ...instrument,
+        volume24h: 0,
+        volatility: 0,
+        marketCap: this.estimateMarketCap(instrument),
+        lastUpdated: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      }));
+    }
+  }
+
+  /**
+   * Get single instrument with characteristics
+   */
+  async getInstrumentWithCharacteristics(symbol: string): Promise<any | null> {
+    try {
+      const query = `
+        SELECT 
+          i.symbol,
+          i.name,
+          i.exchange,
+          i."assetClass",
+          i.sector,
+          md.volume,
+          md."changePercent",
+          md.close as "currentPrice",
+          md.timestamp as "lastMarketData"
+        FROM "Instrument" i
+        LEFT JOIN LATERAL (
+          SELECT volume, "changePercent", close, timestamp
+          FROM "MarketData" 
+          WHERE "instrumentId" = i.id 
+          ORDER BY timestamp DESC 
+          LIMIT 1
+        ) md ON true
+        WHERE i."isActive" = true AND i.symbol = $1
+      `;
+
+      const result = await this.prisma.$queryRawUnsafe(query, symbol);
+      const instruments = result as any[];
+
+      if (instruments.length === 0) return null;
+
+      const instrument = instruments[0];
+      return {
+        ...instrument,
+        volume24h: instrument.volume || 0,
+        volatility: Math.abs(instrument.changePercent || 0),
+        marketCap: this.estimateMarketCap(instrument),
+        lastUpdated:
+          instrument.lastMarketData ||
+          new Date(Date.now() - 24 * 60 * 60 * 1000),
+      };
+    } catch (error) {
+      logger.error(`Failed to get characteristics for ${symbol}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Estimate market cap for instruments without explicit market cap data
+   */
+  private estimateMarketCap(instrument: any): number {
+    // Rough estimates based on exchange and known patterns
+    if (instrument.exchange === "NASDAQ" || instrument.exchange === "NYSE") {
+      // US market - assume medium to large cap for most listed companies
+      return 5_000_000_000; // $5B default
+    } else if (instrument.exchange === "NSE" || instrument.exchange === "BSE") {
+      // Indian market - smaller average market caps
+      return 1_000_000_000; // $1B default (in USD equivalent)
+    } else {
+      // Other markets
+      return 2_000_000_000; // $2B default
     }
   }
 
@@ -619,12 +753,47 @@ export class DatabaseService {
    */
   private getFallbackInstruments(): InstrumentInfo[] {
     return [
-      { id: 'fallback-1', symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ', currency: 'USD', assetClass: 'STOCK' },
-      { id: 'fallback-2', symbol: 'MSFT', name: 'Microsoft Corporation', exchange: 'NASDAQ', currency: 'USD', assetClass: 'STOCK' },
-      { id: 'fallback-3', symbol: 'GOOGL', name: 'Alphabet Inc.', exchange: 'NASDAQ', currency: 'USD', assetClass: 'STOCK' },
-      { id: 'fallback-4', symbol: 'AMZN', name: 'Amazon.com Inc.', exchange: 'NASDAQ', currency: 'USD', assetClass: 'STOCK' },
-      { id: 'fallback-5', symbol: 'TSLA', name: 'Tesla Inc.', exchange: 'NASDAQ', currency: 'USD', assetClass: 'STOCK' }
-    ]
+      {
+        id: "fallback-1",
+        symbol: "AAPL",
+        name: "Apple Inc.",
+        exchange: "NASDAQ",
+        currency: "USD",
+        assetClass: "STOCK",
+      },
+      {
+        id: "fallback-2",
+        symbol: "MSFT",
+        name: "Microsoft Corporation",
+        exchange: "NASDAQ",
+        currency: "USD",
+        assetClass: "STOCK",
+      },
+      {
+        id: "fallback-3",
+        symbol: "GOOGL",
+        name: "Alphabet Inc.",
+        exchange: "NASDAQ",
+        currency: "USD",
+        assetClass: "STOCK",
+      },
+      {
+        id: "fallback-4",
+        symbol: "AMZN",
+        name: "Amazon.com Inc.",
+        exchange: "NASDAQ",
+        currency: "USD",
+        assetClass: "STOCK",
+      },
+      {
+        id: "fallback-5",
+        symbol: "TSLA",
+        name: "Tesla Inc.",
+        exchange: "NASDAQ",
+        currency: "USD",
+        assetClass: "STOCK",
+      },
+    ];
   }
 
   /**
@@ -632,10 +801,10 @@ export class DatabaseService {
    */
   async disconnect(): Promise<void> {
     try {
-      await this.prisma.$disconnect()
-      logger.info('Database service disconnected')
+      await this.prisma.$disconnect();
+      logger.info("Database service disconnected");
     } catch (error) {
-      logger.error('Error disconnecting from database:', error)
+      logger.error("Error disconnecting from database:", error);
     }
   }
-} 
+}

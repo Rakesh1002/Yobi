@@ -1,0 +1,5 @@
+# Limiter configuration to disable bot detection for financial intelligence
+
+[botdetection.ip_limit]
+# Disable IP-based rate limiting
+filter_link_local = false

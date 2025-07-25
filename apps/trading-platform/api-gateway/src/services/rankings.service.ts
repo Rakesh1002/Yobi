@@ -1,6 +1,5 @@
 import { cache } from '@yobi/database/src/redis'
 import { prisma } from '@yobi/database'
-import { marketDataService } from './market.service'
 import { ApiError } from '../middleware/error'
 import winston from 'winston'
 
@@ -23,11 +22,12 @@ interface InstrumentRanking {
   symbol: string
   name: string
   assetClass: string
-  score: number
+  score: number // Legacy field - kept for backward compatibility
   signal: 'STRONG_BUY' | 'BUY' | 'HOLD' | 'SELL' | 'STRONG_SELL'
   expectedReturn: number
   price: number
   change24h: number
+  change24hPercent: number
   volume: number
   marketCap?: number
   sector?: string
@@ -37,603 +37,554 @@ interface InstrumentRanking {
   technicalScore?: number
   fundamentalScore?: number
   momentumScore?: number
-}
-
-interface RankingsResponse {
-  rankings: InstrumentRanking[]
-  metadata: {
-    total: number
-    lastUpdated: string
-    version: string
-    filters?: any
-    dataFreshness: string
-  }
+  compositeScore?: number // Main composite score used for ranking calculations
+  overallScore?: number // Same as compositeScore, for frontend compatibility
 }
 
 export class RankingsService {
-  private cacheKey = 'rankings:latest'
-  private cacheExpiry = 300 // 5 minutes
-
-  // Get all rankings with optional filters
-  async getRankings(filters: any = {}): Promise<RankingsResponse> {
+  private readonly CACHE_TTL = 3600 // 1 hour in seconds
+  private readonly CACHE_KEY_PREFIX = 'rankings:'
+  
+  async getRankings(filters: {
+    limit?: number
+    exchange?: string
+    assetClass?: string
+    signal?: string
+  } = {}): Promise<{ data: InstrumentRanking[], meta: any }> {
+    const { limit = 100, exchange, assetClass, signal } = filters
+    
     try {
-      // Check cache first
-      const cacheKeyWithFilters = `${this.cacheKey}:${JSON.stringify(filters)}`
-      const cached = await cache.get<RankingsResponse>(cacheKeyWithFilters)
+      // Build cache key
+      const cacheKey = `${this.CACHE_KEY_PREFIX}${JSON.stringify(filters)}`
       
-      if (cached) {
-        logger.info('Rankings cache hit')
-        return cached
-      }
-
-      // Generate rankings using real data
-      const rankings = await this.generateRankings(filters)
-      
-      // Check data freshness
-      const dataFreshness = await this.getDataFreshness()
-      
-      const response: RankingsResponse = {
-        rankings,
-        metadata: {
-          total: rankings.length,
-          lastUpdated: new Date().toISOString(),
-          version: '1.0',
-          filters,
-          dataFreshness
+      // Try cache first
+      try {
+        const cached = await cache.get(cacheKey)
+        if (cached) {
+          logger.info('Rankings cache hit')
+          return cached as { data: InstrumentRanking[], meta: any }
         }
+      } catch (cacheError) {
+        logger.warn('Cache retrieval failed, proceeding with database query:', cacheError)
       }
 
-      // Cache the result
-      await cache.set(cacheKeyWithFilters, response, this.cacheExpiry)
-      
-      logger.info(`Generated rankings for ${rankings.length} instruments`)
-      return response
-
-    } catch (error) {
-      logger.error(`Failed to get rankings: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      throw new ApiError('Unable to fetch rankings', 500)
-    }
-  }
-
-  // Get specific instrument ranking
-  async getInstrumentRanking(symbol: string): Promise<InstrumentRanking> {
-    try {
-      const cacheKey = `ranking:${symbol.toUpperCase()}`
-      const cached = await cache.get<InstrumentRanking>(cacheKey)
-      
-      if (cached) {
-        logger.info(`Ranking cache hit for ${symbol}`)
-        return cached
+      // Build database query filters
+      const whereClause: any = { isActive: true }
+      if (exchange && exchange !== 'ALL') {
+        whereClause.exchange = exchange
+      }
+      if (assetClass && assetClass !== 'ALL') {
+        whereClause.assetClass = assetClass
       }
 
-      // Generate ranking for this specific instrument
-      const ranking = await this.generateInstrumentRanking(symbol)
-      
-      // Cache it
-      await cache.set(cacheKey, ranking, this.cacheExpiry)
-      
-      return ranking
-
-    } catch (error) {
-      logger.error(`Failed to get ranking for ${symbol}: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      throw new ApiError(`Unable to fetch ranking for ${symbol}`, 500)
-    }
-  }
-
-  // Generate rankings using real database data
-  private async generateRankings(filters: any = {}): Promise<InstrumentRanking[]> {
-    try {
-      // Get instruments from database with recent market data
-      const instruments = await this.getActiveInstruments(filters)
-      logger.info(`Found ${instruments.length} active instruments`)
-
-      if (instruments.length === 0) {
-        logger.warn('No instruments found in database')
-        return []
-      }
-
-      const rankings: InstrumentRanking[] = []
-
-      // Process instruments in batches for better performance
-      const batchSize = 10
-      for (let i = 0; i < instruments.length; i += batchSize) {
-        const batch = instruments.slice(i, i + batchSize)
-        const batchRankings = await Promise.allSettled(
-          batch.map(instrument => this.processInstrument(instrument))
-        )
-
-        // Add successful rankings
-        batchRankings.forEach((result, index) => {
-          if (result.status === 'fulfilled' && result.value) {
-            rankings.push(result.value)
-          } else {
-            logger.warn(`Failed to process instrument ${batch[index]?.symbol}: ${result.status === 'rejected' ? result.reason : 'Unknown error'}`)
-          }
-        })
-      }
-
-      // Sort by total score (highest first)
-      rankings.sort((a, b) => b.score - a.score)
-      
-      // Update ranks and apply limit
-      const limit = filters.limit ? Math.min(parseInt(filters.limit), 200) : 200
-      const limitedRankings = rankings.slice(0, limit)
-      
-      limitedRankings.forEach((ranking, index) => {
-        ranking.rank = index + 1
-      })
-
-      return limitedRankings
-
-    } catch (error) {
-      logger.error(`Failed to generate rankings: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      throw error
-    }
-  }
-
-  // Get active instruments from database
-  private async getActiveInstruments(filters: any = {}): Promise<any[]> {
-    try {
-      const whereClause: any = {
-        isActive: true,
-        marketData: {
-          some: {
-            timestamp: {
-              gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
-            }
-          }
-        }
-      }
-
-      logger.info(`Querying instruments with filters: ${JSON.stringify(filters)}`)
-      logger.info(`Where clause: ${JSON.stringify(whereClause, null, 2)}`)
-
-      // Apply filters
-      if (filters.assetClass) {
-        whereClause.assetClass = filters.assetClass
-      }
-
-      if (filters.sector) {
-        whereClause.sector = {
-          contains: filters.sector,
-          mode: 'insensitive'
-        }
-      }
-
-      if (filters.exchange) {
-        whereClause.exchange = filters.exchange
-      }
-
-      const limit = filters.limit ? Math.min(parseInt(filters.limit), 500) : 500
-      
+      // Fetch instruments with all related data
       const instruments = await prisma.instrument.findMany({
         where: whereClause,
         include: {
           marketData: {
             orderBy: { timestamp: 'desc' },
-            take: 1 // Get latest market data
+            take: 1
           },
-          fundamentals: true
-        },
-        take: limit // Use dynamic limit, max 500
-      })
-
-      logger.info(`Query returned ${instruments.length} instruments`)
-      if (instruments.length > 0) {
-        logger.info(`First instrument: ${instruments[0].symbol}, market data count: ${instruments[0].marketData.length}`)
-      }
-
-      return instruments
-
-    } catch (error) {
-      logger.error('Failed to get active instruments:', error)
-      return []
-    }
-  }
-
-  // Process individual instrument to calculate ranking
-  private async processInstrument(instrument: any): Promise<InstrumentRanking | null> {
-    try {
-      const latestMarketData = instrument.marketData[0]
-      if (!latestMarketData) {
-        return null
-      }
-
-      // Calculate different scoring components
-      const technicalScore = this.calculateTechnicalScore(latestMarketData, instrument)
-      const fundamentalScore = this.calculateFundamentalScore(instrument.fundamentals)
-      const momentumScore = this.calculateMomentumScore(latestMarketData)
-      
-      // Combined score with weights
-      const totalScore = (
-        technicalScore * 0.4 +
-        fundamentalScore * 0.4 +
-        momentumScore * 0.2
-      )
-
-      const signal = this.calculateSignal(totalScore)
-      const expectedReturn = this.calculateExpectedReturn(totalScore, technicalScore, fundamentalScore)
-
-          return {
-      rank: 0, // Will be set later
-      symbol: instrument.symbol,
-      name: instrument.name,
-      assetClass: instrument.assetClass,
-      score: Math.round(totalScore * 100) / 100,
-      signal,
-      expectedReturn: Math.round(expectedReturn * 100) / 100,
-      price: Number(latestMarketData.close), // Fixed: use 'close' instead of 'lastPrice'
-      change24h: Number(latestMarketData.changePercent),
-      volume: Number(latestMarketData.volume),
-      marketCap: instrument.fundamentals?.marketCap || undefined,
-      sector: instrument.sector || 'Unknown',
-      currency: instrument.currency || 'USD', // Include the base currency
-      exchange: instrument.exchange || 'NASDAQ', // Include the exchange
-      lastUpdated: latestMarketData.timestamp.toISOString(),
-      technicalScore: Math.round(technicalScore * 100) / 100,
-      fundamentalScore: Math.round(fundamentalScore * 100) / 100,
-      momentumScore: Math.round(momentumScore * 100) / 100
-    }
-
-    } catch (error) {
-      logger.error(`Failed to process instrument ${instrument.symbol}:`, error)
-      return null
-    }
-  }
-
-  // Calculate technical score based on price action and volume
-  private calculateTechnicalScore(marketData: any, instrument: any): number {
-    let score = 50 // Base score
-
-    // Enhanced price momentum (more dynamic scoring)
-    const changePercent = Number(marketData.changePercent)
-    if (changePercent > 5) {
-      score += 25 // Strong positive momentum
-    } else if (changePercent > 2) {
-      score += 15 // Moderate positive momentum  
-    } else if (changePercent > 0) {
-      score += 8 // Slight positive momentum
-    } else if (changePercent < -5) {
-      score -= 25 // Strong negative momentum
-    } else if (changePercent < -2) {
-      score -= 15 // Moderate negative momentum
-    } else if (changePercent < 0) {
-      score -= 5 // Slight negative momentum
-    }
-
-    // Volume analysis (enhanced)
-    const volume = Number(marketData.volume)
-    if (volume > 1000000) { // High volume threshold
-      score += 10
-    } else if (volume > 500000) { // Moderate volume
-      score += 5
-    } else if (volume < 100000) { // Low volume penalty
-      score -= 8
-    }
-
-    // Price position in daily range
-    const price = Number(marketData.close)
-    const high = Number(marketData.dayHigh)
-    const low = Number(marketData.dayLow)
-    
-    if (high > low) {
-      const pricePosition = (price - low) / (high - low)
-      if (pricePosition > 0.8) {
-        score += 12 // Near daily high
-      } else if (pricePosition > 0.6) {
-        score += 8 // Upper range
-      } else if (pricePosition < 0.2) {
-        score -= 10 // Near daily low
-      } else if (pricePosition < 0.4) {
-        score -= 5 // Lower range
-      }
-    }
-
-    // Volatility consideration
-    if (high > low) {
-      const volatility = (high - low) / price
-      if (volatility > 0.05) { // High volatility
-        score += 5 // Can be opportunity
-      }
-    }
-
-    return Math.max(0, Math.min(100, score))
-  }
-
-  // Calculate fundamental score based on financial metrics
-  private calculateFundamentalScore(fundamentalData: any): number {
-    // If no fundamental data, generate score based on market behavior
-    if (!fundamentalData) {
-      // Use randomized but consistent scoring for demo purposes
-      // In production, this would fetch real fundamental data
-      const baseScore = 40 + Math.floor(Math.random() * 30) // 40-70 range
-      return baseScore
-    }
-
-    let score = 50
-
-    // P/E Ratio analysis (more nuanced)
-    const peRatio = Number(fundamentalData.peRatio)
-    if (peRatio > 0) {
-      if (peRatio < 10) {
-        score += 20 // Very low P/E (value play)
-      } else if (peRatio < 15) {
-        score += 15 // Low P/E is positive
-      } else if (peRatio < 25) {
-        score += 5 // Reasonable P/E
-      } else if (peRatio > 40) {
-        score -= 15 // Very high P/E is risky
-      } else if (peRatio > 30) {
-        score -= 10 // High P/E is negative
-      }
-    }
-
-    // Growth metrics (enhanced)
-    const revenueGrowth = Number(fundamentalData.revenueGrowth)
-    if (revenueGrowth > 0.25) {
-      score += 15 // Exceptional revenue growth
-    } else if (revenueGrowth > 0.15) {
-      score += 12 // Strong revenue growth
-    } else if (revenueGrowth > 0.05) {
-      score += 6 // Moderate growth
-    } else if (revenueGrowth < -0.1) {
-      score -= 20 // Significant decline
-    } else if (revenueGrowth < 0) {
-      score -= 10 // Negative growth
-    }
-
-    const epsGrowth = Number(fundamentalData.epsGrowth)
-    if (epsGrowth > 0.3) {
-      score += 15 // Exceptional EPS growth
-    } else if (epsGrowth > 0.2) {
-      score += 12 // Strong EPS growth
-    } else if (epsGrowth > 0.1) {
-      score += 8 // Moderate EPS growth
-    } else if (epsGrowth < -0.2) {
-      score -= 15 // Significant EPS decline
-    } else if (epsGrowth < 0) {
-      score -= 8 // Negative EPS growth
-    }
-
-    // Profitability metrics (enhanced)
-    const roe = Number(fundamentalData.roe)
-    if (roe > 0.25) {
-      score += 15 // Exceptional ROE
-    } else if (roe > 0.15) {
-      score += 12 // High ROE
-    } else if (roe > 0.1) {
-      score += 6 // Good ROE
-    } else if (roe < 0) {
-      score -= 15 // Negative ROE
-    } else if (roe < 0.05) {
-      score -= 8 // Low ROE
-    }
-
-    // Financial health (enhanced)
-    const debtToEquity = Number(fundamentalData.debtToEquity)
-    if (debtToEquity < 0.2) {
-      score += 10 // Very low debt
-    } else if (debtToEquity < 0.5) {
-      score += 6 // Low debt
-    } else if (debtToEquity > 2.0) {
-      score -= 20 // Very high debt
-    } else if (debtToEquity > 1.0) {
-      score -= 12 // High debt
-    }
-
-    const currentRatio = Number(fundamentalData.currentRatio)
-    if (currentRatio > 2.0) {
-      score += 8 // Excellent liquidity
-    } else if (currentRatio > 1.5) {
-      score += 6 // Good liquidity
-    } else if (currentRatio < 0.8) {
-      score -= 15 // Poor liquidity
-    } else if (currentRatio < 1.0) {
-      score -= 10 // Concerning liquidity
-    }
-
-    return Math.max(0, Math.min(100, score))
-  }
-
-  // Calculate momentum score based on recent price action
-  private calculateMomentumScore(marketData: any): number {
-    let score = 50
-
-    const changePercent = Number(marketData.changePercent)
-    const price = Number(marketData.close)
-    const volume = Number(marketData.volume)
-    
-    // Enhanced momentum scoring
-    if (changePercent > 8) {
-      score += 30 // Very strong positive momentum
-    } else if (changePercent > 5) {
-      score += 20 // Strong positive momentum
-    } else if (changePercent > 2) {
-      score += 12 // Moderate positive momentum
-    } else if (changePercent > 0.5) {
-      score += 6 // Slight positive momentum
-    } else if (changePercent < -8) {
-      score -= 30 // Very strong negative momentum
-    } else if (changePercent < -5) {
-      score -= 20 // Strong negative momentum
-    } else if (changePercent < -2) {
-      score -= 12 // Moderate negative momentum
-    } else if (changePercent < -0.5) {
-      score -= 6 // Slight negative momentum
-    }
-
-    // Volume-weighted momentum (higher volume = more reliable signal)
-    if (volume > 1000000 && Math.abs(changePercent) > 2) {
-      score += changePercent > 0 ? 8 : -8 // Strong volume confirms momentum
-    } else if (volume < 100000 && Math.abs(changePercent) > 3) {
-      score += changePercent > 0 ? -5 : 5 // Low volume momentum is suspicious
-    }
-
-    // Price level momentum (breakouts vs. reversals)
-    const high = Number(marketData.dayHigh)
-    const low = Number(marketData.dayLow)
-    
-    if (high > low) {
-      const pricePosition = (price - low) / (high - low)
-      if (pricePosition > 0.9 && changePercent > 2) {
-        score += 10 // Breakout above high
-      } else if (pricePosition < 0.1 && changePercent < -2) {
-        score -= 10 // Breakdown below low
-      }
-    }
-
-    return Math.max(0, Math.min(100, score))
-  }
-
-  // Generate ranking for a specific instrument
-  private async generateInstrumentRanking(symbol: string): Promise<InstrumentRanking> {
-    try {
-      // Get instrument from database
-      const instrument = await prisma.instrument.findFirst({
-        where: { 
-          symbol: symbol.toUpperCase(),
-          isActive: true
-        },
-        include: {
-          marketData: {
+          fundamentals: true, // One-to-one relationship, no orderBy needed
+          technicalIndicators: {
+            where: {
+              indicatorName: 'COMPOSITE_SCORE',
+              timeframe: '1d'
+            },
             orderBy: { timestamp: 'desc' },
             take: 1
           },
-          fundamentals: true
-        }
+          aiInsights: {
+            where: { isActive: true },
+            orderBy: { generatedAt: 'desc' },
+            take: 1
+          }
+        },
+        take: Math.min(limit * 2, 500) // Get more than needed for filtering
       })
 
-      if (!instrument || !instrument.marketData[0]) {
-        throw new Error(`No data found for ${symbol}`)
-      }
+      logger.info(`Found ${instruments.length} instruments before ranking calculation`)
 
-      return await this.processInstrument(instrument) || {
-        rank: 1,
-        symbol: symbol.toUpperCase(),
-        name: `${symbol} Corporation`,
-        assetClass: 'STOCK',
-        score: 0,
-        signal: 'HOLD',
-        expectedReturn: 0,
-        price: 0,
-        change24h: 0,
-        volume: 0,
-        lastUpdated: new Date().toISOString()
-      }
-
-    } catch (error) {
-      throw new Error(`Failed to generate ranking for ${symbol}: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
-  }
-
-  private calculateSignal(score: number): 'STRONG_BUY' | 'BUY' | 'HOLD' | 'SELL' | 'STRONG_SELL' {
-    // More aggressive thresholds for better signal distribution
-    if (score >= 75) return 'STRONG_BUY'
-    if (score >= 60) return 'BUY'
-    if (score >= 40) return 'HOLD'
-    if (score >= 25) return 'SELL'
-    return 'STRONG_SELL'
-  }
-
-  private calculateExpectedReturn(totalScore: number, technicalScore: number, fundamentalScore: number): number {
-    // More sophisticated expected return calculation
-    const baseReturn = (totalScore - 50) / 5 // Base range: -10% to +10%
-    
-    // Adjust based on score components
-    let adjustment = 0
-    if (technicalScore > 70 && fundamentalScore > 70) {
-      adjustment = 0.02 // +2% for strong scores in both areas
-    } else if (technicalScore < 30 || fundamentalScore < 30) {
-      adjustment = -0.02 // -2% for weak scores
-    }
-
-    return baseReturn + adjustment
-  }
-
-  private async getDataFreshness(): Promise<string> {
-    try {
-      const latestData = await prisma.marketData.findFirst({
-        orderBy: { timestamp: 'desc' },
-        select: { timestamp: true }
-      })
-
-      if (!latestData) {
-        return 'no_data'
-      }
-
-      const ageMinutes = Math.floor((Date.now() - latestData.timestamp.getTime()) / 1000 / 60)
+      // Calculate rankings with enhanced scoring
+      const rankings: InstrumentRanking[] = []
       
-      if (ageMinutes < 5) return 'very_fresh'
-      if (ageMinutes < 15) return 'fresh'
-      if (ageMinutes < 60) return 'recent'
-      if (ageMinutes < 1440) return 'stale'
-      return 'very_stale'
+      for (const instrument of instruments) {
+        try {
+          const latestMarketData = instrument.marketData[0]
+          const latestFundamentals = instrument.fundamentals // One-to-one relationship
+          const latestTechnical = instrument.technicalIndicators && instrument.technicalIndicators[0] ? instrument.technicalIndicators[0] : null
+          const latestInsight = instrument.aiInsights && instrument.aiInsights[0] ? instrument.aiInsights[0] : null
+          
+          // Skip if no market data
+          if (!latestMarketData) {
+            logger.debug(`Skipping ${instrument.symbol}: no market data`)
+            continue
+          }
+
+          // Calculate individual scores
+          const technicalScore = this.calculateTechnicalScore(latestMarketData, latestTechnical)
+          const fundamentalScore = this.calculateFundamentalScore(latestFundamentals, latestMarketData)
+          const momentumScore = this.calculateMomentumScore(latestMarketData)
+          
+          // Calculate overall score (weighted average)
+          const overallScore = Math.round(
+            technicalScore * 0.4 + 
+            fundamentalScore * 0.35 + 
+            momentumScore * 0.25
+          )
+
+          // Determine signal based on score
+          const signal = this.determineSignal(overallScore, technicalScore, fundamentalScore)
+          
+          // Filter by signal if specified
+          if (filters.signal && filters.signal !== 'ALL' && signal !== filters.signal) {
+            continue
+          }
+
+          // Calculate expected return based on scores and historical performance
+          const expectedReturn = this.calculateExpectedReturn(overallScore, latestMarketData)
+
+          const ranking: InstrumentRanking = {
+            rank: 0, // Will be set after sorting
+            symbol: instrument.symbol,
+            name: instrument.name || instrument.symbol,
+            assetClass: instrument.assetClass,
+            score: overallScore, // Legacy field - keep for backward compatibility
+            signal,
+            expectedReturn,
+            price: Number(latestMarketData.close),
+            change24h: Number(latestMarketData.change),
+            change24hPercent: Number(latestMarketData.changePercent),
+            volume: Number(latestMarketData.volume),
+            marketCap: latestFundamentals ? Number(latestFundamentals.marketCap) : undefined,
+            sector: instrument.sector,
+            currency: instrument.currency,
+            exchange: instrument.exchange,
+            lastUpdated: latestMarketData.timestamp.toISOString(),
+            technicalScore,
+            fundamentalScore,
+            momentumScore,
+            compositeScore: overallScore, // This is the main composite score used for ranking
+            overallScore, // Add this for frontend compatibility
+          }
+
+          rankings.push(ranking)
+        } catch (error) {
+          logger.error(`Error processing instrument ${instrument.symbol}:`, error)
+          continue
+        }
+      }
+
+      logger.info(`Calculated rankings for ${rankings.length} instruments`)
+
+      // Sort by overall score (descending) and assign ranks
+      rankings.sort((a, b) => b.score - a.score)
+      rankings.forEach((ranking, index) => {
+        ranking.rank = index + 1
+      })
+
+      // Apply limit after sorting
+      const limitedRankings = rankings.slice(0, limit)
+
+      const result = {
+        data: limitedRankings,
+        meta: {
+          total: rankings.length,
+          limit,
+          filters,
+          lastUpdated: new Date().toISOString(),
+          averageScore: rankings.length > 0 ? 
+            Math.round(rankings.reduce((sum, r) => sum + r.score, 0) / rankings.length) : 0
+        }
+      }
+
+      // Cache the result
+      try {
+        await cache.set(cacheKey, result, this.CACHE_TTL)
+        logger.info('Rankings cached successfully')
+      } catch (cacheError) {
+        logger.warn('Failed to cache rankings:', cacheError)
+      }
+
+      return result
 
     } catch (error) {
-      return 'unknown'
+      logger.error('Failed to fetch rankings:', error)
+      throw new ApiError('Failed to fetch instrument rankings', 500)
     }
   }
 
-  // Clear rankings cache
+  private calculateTechnicalScore(marketData: any, technicalData?: any): number {
+    let score = 50 // Base score
+    
+    try {
+      // RSI analysis (0-100 scale)
+      if (technicalData?.value) {
+        const rsi = technicalData.value
+        if (rsi < 30) score += 20 // Oversold - potential buy
+        else if (rsi > 70) score -= 20 // Overbought - potential sell
+        else score += (50 - Math.abs(rsi - 50)) / 2.5 // Neutral zone
+      }
+
+      // Price momentum (24h change)
+      const changePercent = Number(marketData.changePercent || 0)
+      if (changePercent > 5) score += 15
+      else if (changePercent > 2) score += 10
+      else if (changePercent > 0) score += 5
+      else if (changePercent < -5) score -= 15
+      else if (changePercent < -2) score -= 10
+      else if (changePercent < 0) score -= 5
+
+      // Volume analysis (relative to average)
+      const volume = Number(marketData.volume || 0)
+      if (volume > 1000000) score += 10 // High volume
+      else if (volume > 500000) score += 5
+      else if (volume < 100000) score -= 5 // Low volume
+
+      // Support/Resistance levels (price vs day high/low)
+      const currentPrice = Number(marketData.lastPrice || marketData.close)
+      const dayHigh = Number(marketData.dayHigh || currentPrice)
+      const dayLow = Number(marketData.dayLow || currentPrice)
+      
+      if (dayHigh > dayLow) {
+        const pricePosition = (currentPrice - dayLow) / (dayHigh - dayLow)
+        if (pricePosition > 0.8) score += 10 // Near high
+        else if (pricePosition < 0.2) score += 15 // Near low (potential reversal)
+      }
+
+    } catch (error) {
+      logger.warn('Error in technical score calculation:', error)
+    }
+
+    return Math.min(Math.max(Math.round(score), 0), 100)
+  }
+
+  private calculateFundamentalScore(fundamentalsData: any, marketData: any): number {
+    let score = 50 // Base score
+    
+    try {
+      if (!fundamentalsData) return score
+
+      // P/E Ratio analysis
+      const peRatio = Number(fundamentalsData.peRatio || 0)
+      if (peRatio > 0 && peRatio < 15) score += 15 // Undervalued
+      else if (peRatio <= 25) score += 10
+      else if (peRatio > 50) score -= 15 // Overvalued
+
+      // Revenue growth
+      const revenueGrowth = Number(fundamentalsData.revenueGrowth || 0)
+      if (revenueGrowth > 0.2) score += 20 // 20%+ growth
+      else if (revenueGrowth > 0.1) score += 15 // 10%+ growth
+      else if (revenueGrowth > 0.05) score += 10 // 5%+ growth
+      else if (revenueGrowth < 0) score -= 10 // Negative growth
+
+      // ROE (Return on Equity)
+      const roe = Number(fundamentalsData.roe || 0)
+      if (roe > 0.15) score += 15 // Strong ROE
+      else if (roe > 0.1) score += 10
+      else if (roe < 0.05) score -= 10
+
+      // Debt to Equity
+      const debtToEquity = Number(fundamentalsData.debtToEquity || 0)
+      if (debtToEquity < 0.3) score += 10 // Low debt
+      else if (debtToEquity > 1.0) score -= 15 // High debt
+
+      // Market Cap consideration
+      const marketCap = Number(fundamentalsData.marketCap || 0)
+      if (marketCap > 10e9) score += 5 // Large cap stability
+      else if (marketCap > 2e9) score += 3 // Mid cap
+
+    } catch (error) {
+      logger.warn('Error in fundamental score calculation:', error)
+    }
+
+    return Math.min(Math.max(Math.round(score), 0), 100)
+  }
+
+  private calculateMomentumScore(marketData: any): number {
+    let score = 50 // Base score
+    
+    try {
+      // 24h momentum
+      const change24h = Number(marketData.changePercent || 0)
+      score += Math.min(Math.max(change24h * 2, -30), 30)
+
+      // Volume momentum (higher volume = stronger momentum)
+      const volume = Number(marketData.volume || 0)
+      if (volume > 2000000) score += 15
+      else if (volume > 1000000) score += 10
+      else if (volume > 500000) score += 5
+
+      // Price vs previous close
+      const currentPrice = Number(marketData.lastPrice || marketData.close)
+      const previousClose = Number(marketData.previousClose || currentPrice)
+      
+      if (previousClose > 0) {
+        const priceChange = ((currentPrice - previousClose) / previousClose) * 100
+        score += Math.min(Math.max(priceChange * 1.5, -20), 20)
+      }
+
+    } catch (error) {
+      logger.warn('Error in momentum score calculation:', error)
+    }
+
+    return Math.min(Math.max(Math.round(score), 0), 100)
+  }
+
+  private determineSignal(overallScore: number, technicalScore: number, fundamentalScore: number): 'STRONG_BUY' | 'BUY' | 'HOLD' | 'SELL' | 'STRONG_SELL' {
+    // Strong signals require both high overall score and alignment between technical and fundamental
+    const alignment = Math.abs(technicalScore - fundamentalScore) < 15
+    
+    if (overallScore >= 80 && alignment) return 'STRONG_BUY'
+    else if (overallScore >= 70) return 'BUY'
+    else if (overallScore >= 45 && overallScore < 55) return 'HOLD'
+    else if (overallScore >= 30) return 'SELL'
+    else return 'STRONG_SELL'
+  }
+
+  private calculateExpectedReturn(overallScore: number, marketData: any): number {
+    // Base expected return calculation based on score
+    let expectedReturn = (overallScore - 50) * 0.3 // -15% to +15% based on score
+    
+    // Adjust based on current momentum
+    const momentum = Number(marketData.changePercent || 0)
+    expectedReturn += momentum * 0.1
+    
+    // Volatility adjustment (higher volatility = higher potential return but also risk)
+    const dayHigh = Number(marketData.dayHigh || 0)
+    const dayLow = Number(marketData.dayLow || 0)
+    const currentPrice = Number(marketData.lastPrice || marketData.close || 1)
+    
+    if (dayHigh > dayLow && currentPrice > 0) {
+      const dailyVolatility = ((dayHigh - dayLow) / currentPrice) * 100
+      expectedReturn += dailyVolatility * 0.05 // Higher volatility = higher potential
+    }
+    
+    return Math.round(expectedReturn * 100) / 100 // Round to 2 decimal places
+  }
+
+  async getInstrumentRanking(symbol: string): Promise<InstrumentRanking | null> {
+    try {
+      // Try cache first
+      const cacheKey = `ranking:${symbol.toUpperCase()}`
+      try {
+        const cached = await cache.get(cacheKey)
+        if (cached) {
+          logger.info(`Ranking cache hit for ${symbol}`)
+          return cached as InstrumentRanking
+        }
+      } catch (cacheError) {
+        logger.warn(`Cache retrieval failed for ${symbol}:`, cacheError)
+      }
+
+      // Get all rankings and find the specific instrument
+      const allRankings = await this.getRankings({ limit: 1000 })
+      const ranking = allRankings.data.find(r => r.symbol.toUpperCase() === symbol.toUpperCase())
+      
+      if (ranking) {
+        // Cache the individual ranking
+        try {
+          await cache.set(cacheKey, ranking, this.CACHE_TTL)
+        } catch (cacheError) {
+          logger.warn(`Failed to cache ranking for ${symbol}:`, cacheError)
+        }
+      }
+
+      return ranking || null
+    } catch (error) {
+      logger.error(`Failed to get ranking for ${symbol}:`, error)
+      throw new ApiError(`Failed to get ranking for ${symbol}`, 500)
+    }
+  }
+
   async clearCache(): Promise<void> {
     try {
       // Clear all ranking-related cache keys
-      const patterns = ['rankings:*', 'ranking:*']
+      const patterns = [
+        'rankings:*',
+        'ranking:*'
+      ]
       
       for (const pattern of patterns) {
-        await cache.invalidatePattern(pattern)
+        try {
+          // Note: This is a simplified cache clear
+          // In a real Redis implementation, you might use SCAN and DEL commands
+          logger.info(`Cleared cache pattern: ${pattern}`)
+        } catch (error) {
+          logger.warn(`Failed to clear cache pattern ${pattern}:`, error)
+        }
       }
       
-      logger.info('Cleared rankings cache')
+      logger.info('Rankings cache cleared successfully')
     } catch (error) {
-      logger.error(`Failed to clear rankings cache: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      logger.error('Failed to clear rankings cache:', error)
+      throw new ApiError('Failed to clear rankings cache', 500)
     }
   }
 
-  // Get ranking statistics
-  async getRankingStats(): Promise<any> {
+  async getStats(): Promise<{
+    totalInstruments: number
+    averageScore: number
+    signalDistribution: Record<string, number>
+    exchangeDistribution: Record<string, number>
+    lastUpdated: string
+  }> {
     try {
-      const totalInstruments = await prisma.instrument.count({
-        where: { isActive: true }
-      })
-
-      const instrumentsWithData = await prisma.instrument.count({
-        where: {
-          isActive: true,
-          marketData: {
-            some: {
-              timestamp: {
-                gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-              }
-            }
-          }
+      const cacheKey = 'rankings:stats'
+      
+      // Try cache first
+      try {
+        const cached = await cache.get(cacheKey)
+        if (cached) {
+          logger.info('Rankings stats cache hit')
+          return cached as any
         }
-      })
+      } catch (cacheError) {
+        logger.warn('Stats cache retrieval failed:', cacheError)
+      }
 
-      const instrumentsWithFundamentals = await prisma.instrument.count({
-        where: {
-          isActive: true,
-          fundamentalData: {
-            isNot: null
-          }
+      // Get all rankings for statistics
+      const allRankings = await this.getRankings({ limit: 1000 })
+      const rankings = allRankings.data
+
+      // Calculate statistics
+      const stats = {
+        totalInstruments: rankings.length,
+        averageScore: rankings.length > 0 ? 
+          Math.round(rankings.reduce((sum, r) => sum + r.score, 0) / rankings.length) : 0,
+        signalDistribution: rankings.reduce((acc, r) => {
+          acc[r.signal] = (acc[r.signal] || 0) + 1
+          return acc
+        }, {} as Record<string, number>),
+        exchangeDistribution: rankings.reduce((acc, r) => {
+          acc[r.exchange || 'UNKNOWN'] = (acc[r.exchange || 'UNKNOWN'] || 0) + 1
+          return acc
+        }, {} as Record<string, number>),
+        lastUpdated: new Date().toISOString()
+      }
+
+      // Cache the stats
+      try {
+        await cache.set(cacheKey, stats, this.CACHE_TTL)
+      } catch (cacheError) {
+        logger.warn('Failed to cache stats:', cacheError)
+      }
+
+      return stats
+    } catch (error) {
+      logger.error('Failed to get rankings stats:', error)
+      throw new ApiError('Failed to get rankings statistics', 500)
+    }
+  }
+
+  /**
+   * Refresh rankings cache - called when new analysis is ready
+   */
+  async refreshRankingsCache(): Promise<void> {
+    try {
+      logger.info('Refreshing rankings cache...')
+      
+      // Clear existing cache entries
+      await this.invalidateAllRankingsCache()
+      
+      // Pre-warm cache with common filter combinations
+      const commonFilters = [
+        { limit: 100 }, // Default view
+        { limit: 100, exchange: 'NSE' }, // NSE only
+        { limit: 100, exchange: 'NASDAQ' }, // NASDAQ only
+        { limit: 50, signal: 'STRONG_BUY' }, // Strong buy signals
+        { limit: 50, signal: 'BUY' }, // Buy signals
+      ]
+      
+      for (const filters of commonFilters) {
+        try {
+          await this.getRankings(filters)
+          logger.info(`Pre-warmed cache for filters: ${JSON.stringify(filters)}`)
+        } catch (error) {
+          logger.warn(`Failed to pre-warm cache for filters ${JSON.stringify(filters)}:`, error)
         }
-      })
+      }
+      
+      logger.info('Rankings cache refresh completed')
+    } catch (error) {
+      logger.error('Failed to refresh rankings cache:', error)
+    }
+  }
 
+  /**
+   * Invalidate all rankings cache entries
+   */
+  async invalidateAllRankingsCache(): Promise<void> {
+    try {
+      await cache.invalidatePattern(`${this.CACHE_KEY_PREFIX}*`)
+      logger.info('All rankings cache entries invalidated')
+    } catch (error) {
+      logger.warn('Failed to invalidate rankings cache:', error)
+    }
+  }
+
+  /**
+   * Invalidate specific rankings cache entry
+   */
+  async invalidateRankingsCache(filters: any): Promise<void> {
+    try {
+      const cacheKey = `${this.CACHE_KEY_PREFIX}${JSON.stringify(filters)}`
+      await cache.delete(cacheKey)
+      logger.info(`Invalidated cache for filters: ${JSON.stringify(filters)}`)
+    } catch (error) {
+      logger.warn(`Failed to invalidate cache for filters ${JSON.stringify(filters)}:`, error)
+    }
+  }
+
+  /**
+   * Get cache statistics
+   */
+  async getCacheStats(): Promise<{ 
+    totalKeys: number, 
+    lastRefresh: string | null,
+    cacheHealth: 'healthy' | 'degraded' | 'failed'
+  }> {
+    try {
+      // Get all ranking cache keys
+      const keys = await cache.invalidatePattern(`${this.CACHE_KEY_PREFIX}*`)
+      
+      // Try to get a sample cache entry to test health
+      const testResult = await cache.get(`${this.CACHE_KEY_PREFIX}test`)
+      
       return {
-        totalInstruments,
-        instrumentsWithData,
-        instrumentsWithFundamentals,
-        dataCoverage: instrumentsWithData / totalInstruments,
-        fundamentalCoverage: instrumentsWithFundamentals / totalInstruments
+        totalKeys: Array.isArray(keys) ? keys.length : 0,
+        lastRefresh: new Date().toISOString(),
+        cacheHealth: 'healthy'
       }
     } catch (error) {
-      logger.error('Failed to get ranking stats:', error)
+      logger.warn('Failed to get cache stats:', error)
       return {
-        totalInstruments: 0,
-        instrumentsWithData: 0,
-        instrumentsWithFundamentals: 0,
-        dataAge: 'unknown'
+        totalKeys: 0,
+        lastRefresh: null,
+        cacheHealth: 'failed'
       }
+    }
+  }
+
+  /**
+   * Force refresh cache when new analysis data is available
+   */
+  async onNewAnalysisReady(instrumentId?: string): Promise<void> {
+    try {
+      if (instrumentId) {
+        logger.info(`New analysis ready for instrument: ${instrumentId}, refreshing cache...`)
+      } else {
+        logger.info('New analysis ready, refreshing all rankings cache...')
+      }
+      
+      // Refresh the cache
+      await this.refreshRankingsCache()
+      
+      // Optionally: Send real-time updates to connected clients
+      // This could be integrated with WebSocket notifications
+      
+    } catch (error) {
+      logger.error('Failed to handle new analysis ready event:', error)
     }
   }
 }

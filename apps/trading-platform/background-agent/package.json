@@ -3,12 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "BACKGROUND_AGENT_PORT=3009 tsx watch src/index.ts",
     "start": "node dist/index.js",
     "build": "tsc",
     "clean": "rm -rf dist",
     "type-check": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "demo:optimized-search": "tsx src/demo-optimized-search.ts",
+    "demo:searxng": "tsx src/demo-searxng.ts",
+    "demo:enhanced-agent": "tsx src/demo-enhanced-agent.ts",
+    "validate": "tsx src/demo-agent-validation.ts",
+    "validate:fast": "tsx src/demo-fast-validation.ts",
+    "cache:health": "tsx src/utils/cache-manager.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.3",

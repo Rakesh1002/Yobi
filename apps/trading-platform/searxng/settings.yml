@@ -1,0 +1,83 @@
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "Yobi Financial Intelligence Engine"
+
+search:
+  safe_search: 0
+  autocomplete: 'google'
+  formats:
+    - html
+    - json
+
+server:
+  port: 8080
+  bind_address: "0.0.0.0"
+  secret_key: "16b7JskJjrrQoMKXWyoMAoVV7MwXl4rItkCUkRL4aDM="
+  limiter: false
+  image_proxy: false
+  method: "GET"
+
+valkey:
+  url: redis://redis:6379/0
+
+outgoing:
+  request_timeout: 10.0
+  max_request_timeout: 15.0
+  retries: 2
+
+# Conservative but comprehensive engine selection
+engines:
+  - name: startpage
+    engine: startpage
+    shortcut: sp
+    categories: [general, news]
+    disabled: false
+    timeout: 10.0
+
+  - name: brave
+    engine: brave
+    shortcut: br
+    categories: [general, news]
+    disabled: false
+    timeout: 10.0
+
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    categories: [general, news]
+    disabled: false
+    timeout: 10.0
+
+  - name: google
+    engine: google
+    shortcut: go
+    categories: [general, news]
+    disabled: false
+    timeout: 12.0
+
+  - name: bing
+    engine: bing  
+    shortcut: bi
+    categories: [general, news]
+    disabled: false
+    timeout: 12.0
+
+  - name: yahoo
+    engine: yahoo
+    shortcut: yh
+    categories: [general, news] 
+    disabled: false
+    timeout: 10.0
+
+  - name: reddit
+    engine: reddit
+    shortcut: re
+    categories: [general, news]
+    disabled: false
+    timeout: 8.0
+
+categories_as_tabs:
+  general: 
+  news: 

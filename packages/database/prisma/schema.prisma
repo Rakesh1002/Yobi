@@ -75,35 +75,40 @@ model Session {
 
 // Market Data
 model Instrument {
-  id         String      @id @default(cuid())
-  symbol     String
-  name       String
-  assetClass AssetClass
-  exchange   Exchange
-  sector     String?
-  industry   String?
-  isin       String?     @unique
-  currency   String      @default("USD")
-  lotSize    Int         @default(1)
-  tickSize   Float       @default(0.01)
-  isActive   Boolean     @default(true)
-  metadata   Json?       // Additional instrument-specific data
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-
-  // Relations
-  marketData      MarketData[]
-  positions       Position[]
-  orders          Order[]
-  trades          Trade[]
-  alerts          Alert[]
-  fundamentals    FundamentalData?
-  recommendations Recommendation[]
+  id                    String               @id @default(cuid())
+  symbol                String
+  name                  String
+  assetClass            AssetClass
+  exchange              Exchange
+  sector                String?
+  industry              String?
+  isin                  String?              @unique
+  currency              String               @default("USD")
+  lotSize               Int                  @default(1)
+  tickSize              Float                @default(0.01)
+  isActive              Boolean              @default(true)
   
-  // New Relations
-  documents       Document[]
-  searchResults   SearchResult[]
-  aiInsights      AiInsight[]
+  // Dynamic discovery fields
+  searchCount           Int                  @default(0)
+  lastSearched          DateTime?
+  discoveredAt          DateTime             @default(now())
+  priority              Int                  @default(0)
+  avgVolume             Float?
+  
+  metadata              Json?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  marketData            MarketData[]
+  positions             Position[]
+  orders                Order[]
+  trades                Trade[]
+  alerts                Alert[]
+  fundamentals          FundamentalData?
+  recommendations       Recommendation[]
+  documents             Document[]
+  searchResults         SearchResult[]
+  aiInsights            AiInsight[]
+  technicalIndicators   TechnicalIndicator[]
 
   @@unique([symbol, exchange])
   @@index([assetClass])
@@ -516,6 +521,7 @@ enum SearchProvider {
   TAVILY
   EXA
   SERP
+  SEARXNG
   EDGAR
   COMPANY_IR
 }
@@ -709,6 +715,7 @@ model TechnicalIndicator {
   metadata      Json?
   createdAt     DateTime @default(now()) @map("created_at")
 
+  instrument    Instrument @relation(fields: [instrumentId], references: [id])
   @@id([timestamp, instrumentId, indicatorName, timeframe])
   @@map("technical_indicators")
   @@index([symbol, timestamp(sort: Desc)])

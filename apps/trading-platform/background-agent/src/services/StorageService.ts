@@ -121,7 +121,7 @@ export class StorageService {
           const existingResult = await this.databaseService.findSearchResult(
             instrumentId, 
             result.url, 
-            result.source || 'unknown'
+            this.mapSourceProvider(result.source || 'unknown')
           )
 
           if (existingResult) {
@@ -137,7 +137,7 @@ export class StorageService {
             title: result.title,
             url: result.url,
             snippet: result.snippet,
-            provider: result.source || 'unknown',
+            provider: this.mapSourceProvider(result.source || 'unknown'),
             relevanceScore: result.relevanceScore || 0,
             publishedDate: result.published ? new Date(result.published) : null,
             contentType: 'web',
@@ -246,7 +246,7 @@ export class StorageService {
             extractedText: doc.content,
             summary: null, // Can be generated later with AI
             keyPoints: [],
-            sourceProvider: doc.metadata?.source || 'unknown',
+            sourceProvider: this.mapSourceProvider(doc.metadata?.source || 'unknown'),
             sourceUrl: doc.url,
             metadata: {
               ...doc.metadata,
@@ -487,6 +487,27 @@ export class StorageService {
       'COMPANY_DOCUMENT': 'ANNUAL_REPORT'
     }
     return typeMap[type] || 'RESEARCH_REPORT'
+  }
+
+  /**
+   * Map source provider to database enum
+   */
+  private mapSourceProvider(source: string): string {
+    const sourceMap: { [key: string]: string } = {
+      'SEC EDGAR': 'EDGAR',
+      'EDGAR': 'EDGAR',
+      'Tavily': 'TAVILY',
+      'TAVILY': 'TAVILY',
+      'Exa': 'EXA',
+      'EXA': 'EXA',
+      'SERP': 'SERP',
+      'searxng': 'SEARXNG',
+      'SEARXNG': 'SEARXNG',
+      'Company IR': 'COMPANY_IR',
+      'COMPANY_IR': 'COMPANY_IR',
+      'unknown': 'EDGAR' // Default fallback for SEC documents
+    }
+    return sourceMap[source] || 'SEARXNG' // Default to SEARXNG since it's our primary provider
   }
 
   async disconnect(): Promise<void> {

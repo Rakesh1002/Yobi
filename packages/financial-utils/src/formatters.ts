@@ -1,6 +1,30 @@
 // Formatting utilities for financial data
 
 /**
+ * Determine currency code from exchange
+ */
+export function getCurrencyFromExchange(exchange: string): string {
+  switch (exchange?.toUpperCase()) {
+    case 'NSE':
+    case 'BSE':
+      return 'INR'
+    case 'NYSE':
+    case 'NASDAQ':
+    case 'AMEX':
+      return 'USD'
+    case 'LSE':
+      return 'GBP'
+    case 'FRA':
+    case 'XETR':
+      return 'EUR'
+    case 'TSE':
+      return 'JPY'
+    default:
+      return 'USD' // Default fallback
+  }
+}
+
+/**
  * Format currency with appropriate symbol and decimals
  */
 export function formatCurrency(

@@ -4,13 +4,16 @@
   "private": true,
   "scripts": {
     "build": "turbo build",
-    "dev": "turbo dev --ui=tui --parallel --no-cache --filter=@yobi/trading-frontend --filter=@yobi/api-gateway --filter=@yobi/data-collector --filter=@yobi/background-agent",
-    "dev:trading": "turbo dev --filter=@yobi/trading-frontend --filter=@yobi/api-gateway --filter=@yobi/data-collector --filter=@yobi/background-agent",
-    "dev:all": "turbo dev",
-    "dev:frontend": "turbo dev --filter=@yobi/trading-frontend",
+    "predev": "bash scripts/cleanup-ports.sh && (docker info > /dev/null 2>&1 && docker-compose -f apps/trading-platform/searxng/docker-compose.yml up -d --remove-orphans || echo '⚠️  Docker not ready - starting without SearXNG')",
+    "dev": "turbo dev --ui=tui --parallel --no-cache --filter=@yobi/frontend --filter=@yobi/api-gateway --filter=@yobi/data-collector --filter=@yobi/background-agent",
+    "dev:trading": "pnpm predev && turbo dev --filter=@yobi/frontend --filter=@yobi/api-gateway --filter=@yobi/data-collector --filter=@yobi/background-agent",
+    "dev:all": "pnpm predev && turbo dev",
+    "dev:nodock": "bash scripts/cleanup-ports.sh && turbo dev --ui=tui --parallel --no-cache --filter=@yobi/frontend --filter=@yobi/api-gateway --filter=@yobi/data-collector --filter=@yobi/background-agent",
+    "dev:frontend": "turbo dev --filter=@yobi/frontend",
     "dev:api": "turbo dev --filter=@yobi/api-gateway",
     "dev:collector": "turbo dev --filter=@yobi/data-collector",
     "dev:agent": "turbo dev --filter=@yobi/background-agent",
+    "stop": "docker-compose -f apps/trading-platform/searxng/docker-compose.yml down && turbo kill",
     "start:frontend": "cd apps/trading-platform/frontend && pnpm dev",
     "start:api": "cd apps/trading-platform/api-gateway && pnpm dev",
     "start:collector": "cd apps/trading-platform/data-collector && pnpm dev",
@@ -23,20 +26,26 @@
     "db:migrate": "cd packages/database && npx prisma migrate dev",
     "db:timescale:setup": "cd packages/database && node enable-timescale.js",
     "db:timescale:health": "cd packages/database && node check-timescale.js",
-    "db:timescale:demo": "cd packages/database && node timescale-example.js"
+    "db:timescale:demo": "cd packages/database && node timescale-example.js",
+    "seed:instruments": "cd apps/trading-platform/data-collector && npm run seed",
+    "clean:ports": "bash scripts/cleanup-ports.sh",
+    "dev:clean": "npm run clean:ports && npm run dev",
+    "dev:fresh": "npm run clean:ports && npm run predev && npm run dev"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "concurrently": "^8.2.2",
-    "turbo": "^2.0.5",
-    "typescript": "^5.5.3"
+    "turbo": "^2.5.5",
+    "typescript": "^5.8.3"
   },
   "packageManager": "pnpm@9.1.4",
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
-    "neonctl": "^2.12.0"
+    "neonctl": "^2.12.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   }
 }

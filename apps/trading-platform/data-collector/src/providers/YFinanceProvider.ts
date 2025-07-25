@@ -133,7 +133,13 @@ export class YFinanceProvider {
         throw new Error(result.error)
       }
 
-      const quote = result.quote
+      // Handle different response formats - the Python script returns quote directly
+      const quote = result.quote || result
+      
+      if (!quote || typeof quote !== 'object') {
+        throw new Error(`Invalid quote data received for ${symbol}`)
+      }
+      
       return {
         symbol: symbol, // Return original symbol without suffix
         name: quote.name || symbol,
@@ -265,15 +271,223 @@ export class YFinanceProvider {
     }
   }
 
-  async searchSymbols(query: string): Promise<any[]> {
-    // yfinance doesn't have a built-in search, but we can implement basic validation
+  async searchSymbols(query: string): Promise<{ symbol: string; name: string }[]> {
+    logger.info(`Searching for symbols matching: ${query}`)
+    
+    const results: { symbol: string; name: string }[] = []
+    
+    // Strategy 1: Direct symbol lookup (existing functionality)
     try {
       const quote = await this.getQuote(query.toUpperCase())
-      return [{ symbol: quote.symbol, name: quote.name }]
+      results.push({ symbol: quote.symbol, name: quote.name || quote.symbol })
+      logger.info(`Found direct symbol match for ${query}: ${quote.symbol}`)
+      return results
     } catch (error) {
-      logger.warn(`Symbol search failed for ${query}:`, error)
-      return []
+      logger.debug(`Direct symbol lookup failed for ${query}:`, error instanceof Error ? (error.message || 'Unknown error') : String(error))
     }
+    
+    // Strategy 2: Enhanced company name search using Python script
+    try {
+      const searchResults = await this.executePythonScript(['search', '--query', query])
+      
+      if (searchResults.error) {
+        logger.warn(`Python search failed: ${searchResults.error}`)
+      } else if (searchResults.results && Array.isArray(searchResults.results)) {
+        results.push(...searchResults.results)
+        logger.info(`Found ${searchResults.results.length} results from enhanced search`)
+        return results
+      }
+    } catch (error) {
+      logger.debug(`Enhanced search failed for ${query}:`, error instanceof Error ? (error.message || 'Unknown error') : String(error))
+    }
+    
+    // Strategy 3: Common symbol pattern matching
+    const commonPatterns = this.getCommonSymbolPatterns(query)
+    for (const pattern of commonPatterns) {
+      try {
+        const quote = await this.getQuote(pattern)
+        results.push({ symbol: quote.symbol, name: quote.name || quote.symbol })
+        logger.info(`Found pattern match for ${query}: ${pattern} -> ${quote.symbol}`)
+        return results
+      } catch (error) {
+        logger.debug(`Pattern ${pattern} failed for ${query}`)
+      }
+    }
+    
+    // Strategy 4: Web search fallback (if available)
+    try {
+      const webSearchResults = await this.performWebSearchFallback(query)
+      if (webSearchResults.length > 0) {
+        results.push(...webSearchResults)
+        logger.info(`Found ${webSearchResults.length} results from web search fallback`)
+        return results
+      }
+    } catch (error) {
+      logger.debug(`Web search fallback failed for ${query}:`, error instanceof Error ? error.message : String(error))
+    }
+    
+    logger.warn(`No search results found for query: ${query}`)
+    return results
+  }
+
+  private getCommonSymbolPatterns(query: string): string[] {
+    const patterns: string[] = []
+    const cleanQuery = query.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+    
+    // Common company name to symbol mappings
+    const companyMappings: { [key: string]: string[] } = {
+      'APPLE': ['AAPL'],
+      'MICROSOFT': ['MSFT'],
+      'GOOGLE': ['GOOGL', 'GOOG'],
+      'ALPHABET': ['GOOGL', 'GOOG'],
+      'AMAZON': ['AMZN'],
+      'TESLA': ['TSLA'],
+      'META': ['META'],
+      'FACEBOOK': ['META'],
+      'NVIDIA': ['NVDA'],
+      'NETFLIX': ['NFLX'],
+      'INTEL': ['INTC'],
+      'IBM': ['IBM'],
+      'ORACLE': ['ORCL'],
+      'SALESFORCE': ['CRM'],
+      'ZOOM': ['ZM'],
+      'TWITTER': ['TWTR'],
+      'UBER': ['UBER'],
+      'LYFT': ['LYFT'],
+      'AIRBNB': ['ABNB'],
+      'PAYPAL': ['PYPL'],
+      'SQUARE': ['SQ'],
+      'SHOPIFY': ['SHOP'],
+      'SPOTIFY': ['SPOT'],
+      'ADOBE': ['ADBE'],
+      'CISCO': ['CSCO'],
+      'WALMART': ['WMT'],
+      'DISNEY': ['DIS'],
+      'BOEING': ['BA'],
+      'JPMORGAN': ['JPM'],
+      'GOLDMAN': ['GS'],
+      'MORGAN': ['MS'],
+      'RELIANCE': ['RELIANCE.NS'],
+      'TCS': ['TCS.NS'],
+      'INFOSYS': ['INFY.NS'],
+      'WIPRO': ['WIPRO.NS'],
+      'HDFC': ['HDFCBANK.NS'],
+      'ICICI': ['ICICIBANK.NS'],
+      'SBI': ['SBIN.NS'],
+      'BHARTI': ['BHARTIARTL.NS'],
+      'ADANI': ['ADANIPORTS.NS'],
+      'TATA': ['TATAMOTORS.NS', 'TATASTEEL.NS', 'TATAPOWER.NS']
+    }
+    
+    // Check for exact company name matches
+    if (companyMappings[cleanQuery]) {
+      patterns.push(...companyMappings[cleanQuery])
+    }
+    
+    // Check for partial matches
+    for (const [company, symbols] of Object.entries(companyMappings)) {
+      if (company.includes(cleanQuery) || cleanQuery.includes(company)) {
+        patterns.push(...symbols)
+      }
+    }
+    
+    // Add common suffixes for Indian stocks
+    if (this.isLikelyIndianCompany(cleanQuery)) {
+      patterns.push(`${cleanQuery}.NS`, `${cleanQuery}.BO`)
+    }
+    
+    // Add the original query as-is
+    patterns.push(cleanQuery)
+    
+    return [...new Set(patterns)] // Remove duplicates
+  }
+  
+  private isLikelyIndianCompany(query: string): boolean {
+    const indianIndicators = [
+      'LTD', 'LIMITED', 'INDUSTRIES', 'MOTORS', 'BANK', 'FINANCE',
+      'POWER', 'STEEL', 'CHEMICALS', 'PHARMA', 'TECH', 'SYSTEMS'
+    ]
+    return indianIndicators.some(indicator => query.includes(indicator))
+  }
+
+  private async performWebSearchFallback(query: string): Promise<{ symbol: string; name: string }[]> {
+    // This would integrate with web search service if available
+    // For now, we'll implement a basic fallback that could be enhanced
+    
+    logger.info(`Attempting web search fallback for: ${query}`)
+    
+    try {
+      // Check if we have access to web search service
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
+      
+      const response = await fetch(`http://localhost:8080/api/search/unified?query=${encodeURIComponent(query + ' stock symbol ticker')}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal
+      }).catch(() => null)
+      
+      clearTimeout(timeoutId)
+      
+      if (response && response.ok) {
+        const searchData = await response.json()
+        const symbols = this.extractSymbolsFromWebSearch(searchData, query)
+        
+        // Validate found symbols by attempting to get quotes
+        const validatedResults: { symbol: string; name: string }[] = []
+        for (const symbol of symbols) {
+          try {
+            const quote = await this.getQuote(symbol)
+            validatedResults.push({ symbol: quote.symbol, name: quote.name || quote.symbol })
+            if (validatedResults.length >= 3) break // Limit to top 3 results
+          } catch (error) {
+            logger.debug(`Symbol validation failed for ${symbol}`)
+          }
+        }
+        
+        return validatedResults
+      }
+    } catch (error) {
+      logger.debug(`Web search service not available:`, (error as Error).message)
+    }
+    
+    return []
+  }
+  
+  private extractSymbolsFromWebSearch(searchData: any, originalQuery: string): string[] {
+    const symbols: string[] = []
+    
+    if (searchData?.results && Array.isArray(searchData.results)) {
+      for (const result of searchData.results) {
+        if (!result || typeof result !== 'object') continue
+        
+        const title = result.title || ''
+        const snippet = result.snippet || ''
+        const content = `${title} ${snippet}`.toLowerCase()
+        
+        // Look for ticker symbols in the content
+        const tickerPatterns = [
+          /ticker:\s*([A-Z]{2,5})/gi,
+          /symbol:\s*([A-Z]{2,5})/gi,
+          /\(([A-Z]{2,5})\)/g,
+          /\b([A-Z]{2,5})\b/g
+        ]
+        
+        for (const pattern of tickerPatterns) {
+          const matches = content.matchAll(pattern)
+          for (const match of matches) {
+            if (match[1]) {
+              const symbol = match[1].toUpperCase()
+              if (symbol.length >= 2 && symbol.length <= 5 && !symbols.includes(symbol)) {
+                symbols.push(symbol)
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return symbols.slice(0, 10) // Return top 10 potential symbols
   }
 
   async getServiceStatus(): Promise<any> {

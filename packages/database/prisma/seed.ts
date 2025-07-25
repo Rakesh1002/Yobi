@@ -28,6 +28,23 @@ const INSTRUMENTS = [
   { symbol: 'IWM', name: 'iShares Russell 2000 ETF', assetClass: AssetClass.ETF, exchange: Exchange.NYSE, sector: 'Diversified' },
   { symbol: 'VTI', name: 'Vanguard Total Stock Market ETF', assetClass: AssetClass.ETF, exchange: Exchange.NYSE, sector: 'Diversified' },
   { symbol: 'GLD', name: 'SPDR Gold Shares', assetClass: AssetClass.ETF, exchange: Exchange.NYSE, sector: 'Commodities' },
+
+  // Major Indian Stocks (NSE)
+  { symbol: 'TATAMOTORS', name: 'Tata Motors Limited', assetClass: AssetClass.STOCK, exchange: Exchange.NSE, sector: 'Automotive' },
+  { symbol: 'RELIANCE', name: 'Reliance Industries Limited', assetClass: AssetClass.STOCK, exchange: Exchange.NSE, sector: 'Oil & Gas' },
+  { symbol: 'INFY', name: 'Infosys Limited', assetClass: AssetClass.STOCK, exchange: Exchange.NSE, sector: 'Information Technology' },
+  { symbol: 'TCS', name: 'Tata Consultancy Services Limited', assetClass: AssetClass.STOCK, exchange: Exchange.NSE, sector: 'Information Technology' },
+  { symbol: 'HDFCBANK', name: 'HDFC Bank Limited', assetClass: AssetClass.STOCK, exchange: Exchange.NSE, sector: 'Banking' },
+  { symbol: 'ICICIBANK', name: 'ICICI Bank Limited', assetClass: AssetClass.STOCK, exchange: Exchange.NSE, sector: 'Banking' },
+  { symbol: 'SBIN', name: 'State Bank of India', assetClass: AssetClass.STOCK, exchange: Exchange.NSE, sector: 'Banking' },
+  { symbol: 'HINDUNILVR', name: 'Hindustan Unilever Limited', assetClass: AssetClass.STOCK, exchange: Exchange.NSE, sector: 'Consumer Goods' },
+  { symbol: 'BHARTIARTL', name: 'Bharti Airtel Limited', assetClass: AssetClass.STOCK, exchange: Exchange.NSE, sector: 'Telecommunications' },
+  { symbol: 'ASIANPAINT', name: 'Asian Paints Limited', assetClass: AssetClass.STOCK, exchange: Exchange.NSE, sector: 'Paints' },
+  { symbol: 'MARUTI', name: 'Maruti Suzuki India Limited', assetClass: AssetClass.STOCK, exchange: Exchange.NSE, sector: 'Automotive' },
+  { symbol: 'BAJFINANCE', name: 'Bajaj Finance Limited', assetClass: AssetClass.STOCK, exchange: Exchange.NSE, sector: 'Financial Services' },
+  { symbol: 'LT', name: 'Larsen & Toubro Limited', assetClass: AssetClass.STOCK, exchange: Exchange.NSE, sector: 'Engineering' },
+  { symbol: 'WIPRO', name: 'Wipro Limited', assetClass: AssetClass.STOCK, exchange: Exchange.NSE, sector: 'Information Technology' },
+  { symbol: 'ONGC', name: 'Oil and Natural Gas Corporation Limited', assetClass: AssetClass.STOCK, exchange: Exchange.NSE, sector: 'Oil & Gas' },
 ]
 
 // Generate realistic but fake market data
@@ -79,15 +96,35 @@ function generateMarketData(symbol: string, basePrice: number) {
 }
 
 // Generate fundamental data
-function generateFundamentalData() {
+function generateFundamentalData(symbol: string, exchange: Exchange) {
+  // Different scales for different exchanges
+  const isIndian = exchange === Exchange.NSE
+  const marketCapMultiplier = isIndian ? 100000000000 : 2000000000000 // ₹1T max for Indian, $2T for US
+  const revenueMultiplier = isIndian ? 50000000000 : 500000000000 // ₹500B max for Indian, $500B for US
+  
+  // Realistic market caps for major companies
+  const marketCapRanges: { [key: string]: [number, number] } = {
+    // US Stocks (USD)
+    'AAPL': [2.8e12, 3.2e12], 'MSFT': [2.5e12, 2.9e12], 'GOOGL': [1.7e12, 2.1e12],
+    'AMZN': [1.4e12, 1.8e12], 'TSLA': [700e9, 900e9], 'META': [750e9, 950e9],
+    
+    // Indian Stocks (INR) - converted approximate values
+    'TATAMOTORS': [220e9, 280e9], 'RELIANCE': [16e12, 18e12], 'INFY': [6.5e12, 7.5e12],
+    'TCS': [14e12, 16e12], 'HDFCBANK': [12e12, 14e12], 'ICICIBANK': [7e12, 8e12],
+    'SBIN': [3.5e12, 4.5e12], 'HINDUNILVR': [5.5e12, 6.5e12], 'BHARTIARTL': [4.5e12, 5.5e12],
+  }
+  
+  const [minCap, maxCap] = marketCapRanges[symbol] || [marketCapMultiplier * 0.1, marketCapMultiplier]
+  const marketCap = minCap + Math.random() * (maxCap - minCap)
+  
   return {
-    marketCap: Math.random() * 2000000000000, // Up to $2T
+    marketCap,
     peRatio: 15 + Math.random() * 50, // 15-65 P/E
     pbRatio: 1 + Math.random() * 10, // 1-11 P/B
     debtToEquity: Math.random() * 2, // 0-2 D/E
     roe: Math.random() * 0.3, // 0-30% ROE
-    eps: Math.random() * 20, // $0-$20 EPS
-    revenue: Math.random() * 500000000000, // Up to $500B
+    eps: Math.random() * (isIndian ? 100 : 20), // Higher EPS for INR
+    revenue: Math.random() * revenueMultiplier,
     revenueGrowth: (Math.random() - 0.1) * 0.3, // -10% to +20% growth
     netMargin: Math.random() * 0.25, // 0-25% margin
     dividendYield: Math.random() * 0.05, // 0-5% yield
@@ -127,10 +164,16 @@ async function main() {
       
       // Generate realistic base prices
       const basePrices: { [key: string]: number } = {
+        // US Stocks (USD)
         'AAPL': 175, 'MSFT': 350, 'GOOGL': 140, 'AMZN': 145, 'TSLA': 250,
         'META': 300, 'NVDA': 450, 'JPM': 150, 'V': 250, 'WMT': 160,
         'UNH': 500, 'JNJ': 160, 'PG': 155, 'HD': 350, 'MA': 400,
         'SPY': 450, 'QQQ': 380, 'IWM': 200, 'VTI': 240, 'GLD': 190,
+        
+        // Indian Stocks (INR)
+        'TATAMOTORS': 690, 'RELIANCE': 2450, 'INFY': 1580, 'TCS': 3920, 'HDFCBANK': 1650,
+        'ICICIBANK': 1020, 'SBIN': 780, 'HINDUNILVR': 2680, 'BHARTIARTL': 1580, 'ASIANPAINT': 3420,
+        'MARUTI': 10800, 'BAJFINANCE': 6850, 'LT': 3420, 'WIPRO': 580, 'ONGC': 320,
       }
       
       const basePrice = basePrices[instrumentData.symbol] || 100

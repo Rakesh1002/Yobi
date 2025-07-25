@@ -3,6 +3,21 @@ import { query } from 'express-validator'
 import { asyncHandler } from '../middleware/error'
 import { rankingsService } from '../services/rankings.service'
 import { ApiError } from '../middleware/error'
+import winston from 'winston'
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  defaultMeta: { service: 'rankings-routes' },
+  transports: [
+    new winston.transports.Console({
+      format: winston.format.simple()
+    })
+  ],
+})
 
 const router: express.Router = Router()
 
@@ -21,109 +36,75 @@ const validateRequest = (req: any, res: any, next: any) => {
 }
 
 // GET /api/rankings - Get instrument rankings
-router.get('/', 
-  [
-    query('sector')
-      .optional()
-      .isLength({ min: 1, max: 50 })
-      .withMessage('Sector filter must be 1-50 characters'),
-    query('assetClass')
-      .optional()
-      .isIn(['STOCK', 'ETF', 'MUTUAL_FUND', 'CRYPTOCURRENCY', 'CURRENCY'])
-      .withMessage('Asset class must be valid type'),
-    query('exchange')
-      .optional()
-      .isIn(['NSE', 'NASDAQ', 'NYSE', 'ALL'])
-      .withMessage('Exchange must be NSE, NASDAQ, NYSE, or ALL'),
-    query('limit')
-      .optional()
-      .isInt({ min: 1, max: 200 })
-      .withMessage('Limit must be between 1 and 200')
-  ],
-  validateRequest,
-  asyncHandler(async (req: Request, res: Response) => {
-    const { sector, assetClass, exchange, limit } = req.query
-    
+router.get('/', [
+  query('limit').optional().isInt({ min: 1, max: 500 }).withMessage('Limit must be between 1 and 500'),
+  query('exchange').optional().isIn(['ALL', 'NSE', 'NASDAQ', 'NYSE']).withMessage('Invalid exchange'),
+  query('assetClass').optional().isIn(['ALL', 'STOCK', 'ETF', 'MUTUAL_FUND']).withMessage('Invalid asset class'),
+  query('signal').optional().isIn(['ALL', 'STRONG_BUY', 'BUY', 'HOLD', 'SELL', 'STRONG_SELL']).withMessage('Invalid signal'),
+  validateRequest
+], asyncHandler(async (req: Request, res: Response) => {
+  logger.info('Fetching instrument rankings', { 
+    query: req.query,
+    timestamp: new Date().toISOString()
+  })
+
+  try {
+    // Extract and validate query parameters
+    const sector = typeof req.query.sector === 'string' ? req.query.sector : undefined
+    const assetClass = typeof req.query.assetClass === 'string' ? req.query.assetClass : undefined
+    const exchange = typeof req.query.exchange === 'string' ? req.query.exchange : undefined
+    const signal = typeof req.query.signal === 'string' ? req.query.signal : undefined
+    const limit = req.query.limit ? Number(req.query.limit) : undefined
+
     const filters = {
       ...(sector && { sector }),
       ...(assetClass && { assetClass }),
       ...(exchange && exchange !== 'ALL' && { exchange }),
-      ...(limit && { limit: Number(limit) })
+      ...(signal && signal !== 'ALL' && { signal }),
+      ...(limit && { limit })
     }
 
     try {
       const rankingsData = await rankingsService.getRankings(filters)
       
-      // Apply limit if specified
-      let rankings = rankingsData.rankings
-      if (limit) {
-        rankings = rankings.slice(0, Number(limit))
-      }
+      // Data is already limited in the service, but ensure we have the right structure
+      const rankings = rankingsData.data
 
       res.json({
         success: true,
         data: rankings,
-        metadata: {
-          ...rankingsData.metadata,
+        meta: {
+          ...rankingsData.meta,
           returned: rankings.length
         }
       })
-    } catch (error) {
-      throw new ApiError('Unable to fetch rankings', 500)
+    } catch (serviceError) {
+      logger.error('Rankings service error:', serviceError)
+      throw new ApiError('Failed to fetch rankings from service', 500)
     }
-  })
-)
+  } catch (error) {
+    logger.error('Rankings request failed:', error)
+    if (error instanceof ApiError) {
+      throw error
+    }
+    throw new ApiError('Unable to fetch rankings', 500)
+  }
+}))
 
-// Debug endpoint to test the query
-router.get('/debug', asyncHandler(async (req: Request, res: Response) => {
+// GET /api/rankings/stats - Get ranking statistics
+router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
+  logger.info('Fetching ranking statistics')
+  
   try {
-    const { prisma } = require('@yobi/database')
-    
-    // Test the exact query used in getActiveInstruments
-    const whereClause = {
-      isActive: true,
-      marketData: {
-        some: {
-          timestamp: {
-            gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-          }
-        }
-      }
-    }
-    
-    const instruments = await prisma.instrument.findMany({
-      where: whereClause,
-      include: {
-        marketData: {
-          orderBy: { timestamp: 'desc' },
-          take: 1
-        },
-        fundamentals: true
-      },
-      take: 5
-    })
+    const stats = await rankingsService.getStats()
     
     res.json({
       success: true,
-      debug: {
-        queryTime: new Date().toISOString(),
-        whereClause,
-        instrumentCount: instruments.length,
-        instruments: instruments.map((i: any) => ({
-          symbol: i.symbol,
-          name: i.name,
-          isActive: i.isActive,
-          marketDataCount: i.marketData.length,
-          latestPrice: i.marketData[0]?.close,
-          latestTimestamp: i.marketData[0]?.timestamp
-        }))
-      }
+      data: stats
     })
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    })
+    logger.error('Failed to fetch ranking stats:', error)
+    throw new ApiError('Unable to fetch ranking statistics', 500)
   }
 }))
 
@@ -136,13 +117,21 @@ router.get('/:symbol', asyncHandler(async (req: Request, res: Response) => {
   }
 
   try {
-    const ranking = await rankingsService.getInstrumentRanking(symbol)
+    const ranking = await rankingsService.getInstrumentRanking(symbol.toUpperCase())
+    
+    if (!ranking) {
+      throw new ApiError(`No ranking found for symbol: ${symbol}`, 404)
+    }
     
     res.json({
       success: true,
       data: ranking
     })
   } catch (error) {
+    logger.error(`Failed to fetch ranking for ${symbol}:`, error)
+    if (error instanceof ApiError) {
+      throw error
+    }
     throw new ApiError(`Unable to fetch ranking for ${symbol}`, 500)
   }
 }))
@@ -158,7 +147,69 @@ router.post('/refresh', asyncHandler(async (req: Request, res: Response) => {
       message: 'Rankings cache cleared successfully'
     })
   } catch (error) {
+    logger.error('Failed to clear rankings cache:', error)
     throw new ApiError('Unable to refresh rankings', 500)
+  }
+}))
+
+// GET /api/rankings/cache/stats - Get cache statistics
+router.get('/cache/stats', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const stats = await rankingsService.getCacheStats()
+    res.json({
+      success: true,
+      data: stats
+    })
+  } catch (error) {
+    logger.error('Failed to get cache stats:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get cache statistics'
+    })
+  }
+}))
+
+// POST /api/rankings/cache/refresh - Manually refresh cache
+router.post('/cache/refresh', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    await rankingsService.refreshRankingsCache()
+    res.json({
+      success: true,
+      message: 'Rankings cache refreshed successfully'
+    })
+  } catch (error) {
+    logger.error('Failed to refresh cache:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Failed to refresh cache'
+    })
+  }
+}))
+
+// POST /api/rankings/cache/invalidate - Invalidate cache
+router.post('/cache/invalidate', asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { filters } = req.body
+    
+    if (filters) {
+      await rankingsService.invalidateRankingsCache(filters)
+      res.json({
+        success: true,
+        message: 'Specific cache entries invalidated'
+      })
+    } else {
+      await rankingsService.invalidateAllRankingsCache()
+      res.json({
+        success: true,
+        message: 'All rankings cache invalidated'
+      })
+    }
+  } catch (error) {
+    logger.error('Failed to invalidate cache:', error)
+    res.status(500).json({
+      success: false,
+      error: 'Failed to invalidate cache'
+    })
   }
 }))
 

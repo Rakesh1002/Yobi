@@ -45,6 +45,9 @@ Yobi Trading Platform is a sophisticated financial analysis system that:
 - **Delivers intelligent rankings** based on technical, fundamental, and momentum analysis
 - **Offers intuitive dashboard** with advanced search and filtering capabilities
 - **Implements comprehensive knowledge base** with CFA-level financial concept extraction
+- **Features real-time WebSocket connectivity** for live data streaming
+- **Includes intelligent background agent** for automated data processing
+- **Supports comprehensive alert system** with multiple notification types
 
 ---
 
@@ -56,8 +59,8 @@ Yobi Trading Platform is a sophisticated financial analysis system that:
 - ✅ **Monorepo Setup**: Turborepo with proper workspace management
 - ✅ **TypeScript Configuration**: Strict typing across all packages
 - ✅ **Database Layer**: Prisma with PostgreSQL, Redis, MongoDB, **TimescaleDB** support
-- ✅ **API Gateway**: Express.js with complete route handlers
-- ✅ **Frontend**: Next.js 14 with modern UI components
+- ✅ **API Gateway**: Express.js with complete route handlers and WebSocket support
+- ✅ **Frontend**: Next.js 14 with modern UI components and knowledge base integration
 - ✅ **Authentication**: NextAuth.js with JWT tokens
 - ✅ **Build System**: Automated builds and deployments
 
@@ -66,9 +69,11 @@ Yobi Trading Platform is a sophisticated financial analysis system that:
 - ✅ **Document Intelligence**: PDF/DOCX processing with OCR support
 - ✅ **Market Intelligence**: Real-time data analysis with sentiment
 - ✅ **Analysis Engine**: Automated analysis scheduling
-- ✅ **Vector Embeddings**: OpenAI text-embedding-ada-002 integration
+- ✅ **Vector Embeddings**: OpenAI text-embedding-3-small integration
 - ✅ **Semantic Search**: Advanced knowledge retrieval
 - ✅ **AI Analysis**: Claude 4 Sonnet for enhanced recommendations
+- ✅ **Background Agent**: Auto-start functionality with database integration
+- ✅ **SearXNG Integration**: Self-hosted search engine with cost-free operation
 
 #### **Data Collection & Processing**
 - ✅ **Real Market Data**: Active collection from multiple providers
@@ -95,6 +100,21 @@ Yobi Trading Platform is a sophisticated financial analysis system that:
   - P&L calculations, VaR (Value at Risk)
   - Portfolio metrics and allocations
 
+#### **Real-time Features** ✅ **PRODUCTION READY**
+- ✅ **WebSocket Server**: Live data streaming implemented in API Gateway
+- ✅ **Real-time Data Broadcasting**: Market data updates every 5 seconds
+- ✅ **Client Subscriptions**: Symbol-based subscription management
+- ✅ **Connection Health**: Ping/pong heartbeat monitoring
+- ✅ **Server Statistics**: Live client count and subscription metrics
+
+#### **Alert System** ✅ **FULLY FUNCTIONAL**
+- ✅ **Multiple Alert Types**: Price, Technical, News, Volume alerts
+- ✅ **Smart Triggers**: Cross-above, cross-below, threshold-based
+- ✅ **Real-time Processing**: Market data integration with alert checking
+- ✅ **WebSocket Notifications**: Instant alert delivery to connected clients
+- ✅ **User Management**: Per-user alert creation and management
+- ✅ **Alert History**: Trigger tracking and recent alerts API
+
 #### **TimescaleDB Integration** ✅ **PRODUCTION READY**
 - ✅ **3 Active Hypertables**: technical_indicators, portfolio_performance, user_activity
 - ✅ **Performance Optimized**: Complex analytics queries in ~150ms
@@ -112,7 +132,9 @@ Yobi Trading Platform is a sophisticated financial analysis system that:
 
 #### **Frontend Dashboard**
 - ✅ **Trading Dashboard**: Responsive design with dark/light mode
-- ✅ **Real-time Data**: Live price updates and rankings
+- ✅ **Knowledge Base UI**: Complete document upload and search interface
+- ✅ **Document Intelligence**: SEC filing browser and processing status
+- ✅ **Enhanced Analysis**: RAG-powered investment analysis with CFA frameworks
 - ✅ **Currency Selector**: Multi-currency support
 - ✅ **Search & Filtering**: Advanced filtering by exchange, asset class
 - ✅ **Interactive Charts**: Price and volume visualization
@@ -131,13 +153,14 @@ Based on system logs and code analysis:
 ✅ Successfully processed 4000+ data points in recent runs
 ```
 
-### **Ranking System**
+### **Real-time WebSocket System**
 ```
-✅ Real algorithm using database market data
-✅ Technical scoring based on price momentum, volume, volatility
-✅ Fundamental scoring using P/E ratios, growth metrics, financial health
-✅ Momentum scoring with volume-weighted signals
-✅ Cached results with 5-minute expiry
+✅ WebSocket server running on API Gateway (port 3002)
+✅ Live market data broadcasting every 5 seconds
+✅ Symbol-based subscription management
+✅ Real-time alert delivery and notifications
+✅ Connection health monitoring with ping/pong
+✅ Multi-user support with authentication
 ```
 
 ### **Intelligence Services**
@@ -147,6 +170,18 @@ Based on system logs and code analysis:
 ✅ Claude AI integration for enhanced analysis
 ✅ Financial concept extraction
 ✅ Knowledge base search and retrieval
+✅ Background agent auto-processing instruments
+✅ SearXNG cost-free search engine integration
+```
+
+### **Alert & Notification System**
+```
+✅ Price alerts with threshold monitoring
+✅ Technical indicator alerts (RSI, MACD, volume)
+✅ Real-time trigger processing
+✅ WebSocket-based instant notifications
+✅ User-specific alert management
+✅ Alert history and analytics
 ```
 
 ---
@@ -155,33 +190,28 @@ Based on system logs and code analysis:
 
 ### **Critical Missing Components**
 
-#### **1. Real-time WebSocket Integration** 🔴
-- **Current State**: WebSocket provider exists but not connected
-- **Needed**: Live price streaming to frontend
-- **Impact**: Dashboard shows cached data, not real-time updates
+#### **1. Frontend WebSocket Integration** 🔴
+- **Current State**: WebSocket server fully implemented, frontend integration needed
+- **Needed**: Connect frontend to live WebSocket streams
+- **Impact**: Dashboard shows cached data instead of real-time updates
 
-#### **2. Portfolio Management System** 🔴
-- **Current State**: Basic structure only
+#### **2. Portfolio Management Completion** 🔴
+- **Current State**: Basic structure and some frontend UI exists
 - **Needed**: 
-  - Position tracking and P&L calculations
-  - Portfolio allocation and rebalancing
+  - Complete position tracking and P&L calculations
+  - Portfolio allocation and rebalancing algorithms
   - Performance metrics and benchmarking
-  - Risk assessment and alerts
+  - Risk assessment and monitoring
 
-#### **3. Background Job Processing** 🔴
-- **Current State**: Job processor service exists but incomplete
+#### **3. Background Job Processing Enhancement** 🔄
+- **Current State**: Background agent exists and auto-starts, needs integration
 - **Needed**:
   - Technical indicator calculations on new data
   - Automated report generation
-  - Alert processing and notifications
+  - Enhanced alert processing
   - Portfolio performance updates
 
-#### **4. TimescaleDB Integration** ✅ **COMPLETED**
-- **Current State**: TimescaleDB service implemented with hypertables
-- **Features**: Compression, continuous aggregates, retention policies
-- **Impact**: 10-100x performance improvement, 90% storage reduction
-
-#### **5. Backtesting System** 🔴
+#### **4. Backtesting System** 🔴
 - **Current State**: Not implemented
 - **Needed**: 
   - Strategy backtesting framework
@@ -193,33 +223,33 @@ Based on system logs and code analysis:
 
 ## 🎯 **Next Steps**
 
-### **Phase 1: Complete Real-time Features** (2-3 weeks)
+### **Phase 1: Complete Real-time Integration** (1-2 weeks)
 
-#### **1.1 WebSocket Integration**
+#### **1.1 Frontend WebSocket Integration**
 ```typescript
-// Connect frontend to real-time data stream
-- Implement WebSocket connection in frontend
-- Stream live price updates to dashboard
-- Real-time ranking updates
-- Live portfolio P&L updates
+// Connect frontend to existing WebSocket server
+- Implement useWebSocket hook in frontend
+- Connect to ws://localhost:3002 WebSocket server
+- Subscribe to market data and alert streams
+- Display real-time updates in dashboard
 ```
 
-#### **1.2 Background Processing**
+#### **1.2 Enhanced Background Processing**
 ```typescript
-// Complete job processor implementation
-- Technical indicator calculations on new data
-- Automated ranking updates
-- Alert generation and processing
-- Report generation scheduling
+// Integrate background agent with main services
+- Connect agent to technical indicator calculations
+- Implement automated ranking updates
+- Enhance alert processing pipeline
+- Add automated report generation
 ```
 
-#### **1.3 Portfolio Management**
+#### **1.3 Portfolio Management Completion**
 ```typescript
-// Implement core portfolio features
-- Position tracking (buy/sell simulation)
-- P&L calculations and performance metrics
-- Portfolio allocation analysis
-- Risk assessment and alerts
+// Complete portfolio management features
+- Finish position tracking implementation
+- Add P&L calculation engine
+- Implement portfolio allocation analysis
+- Add risk assessment dashboard
 ```
 
 ### **Phase 2: Advanced Analytics** (3-4 weeks)
@@ -239,7 +269,7 @@ Based on system logs and code analysis:
 - Pattern recognition (head & shoulders, triangles)
 - Multi-timeframe analysis
 - Custom indicator creation
-- Alert system for technical signals
+- Advanced alert system for technical signals
 ```
 
 #### **2.3 Advanced Portfolio Features**
@@ -301,7 +331,7 @@ Based on system logs and code analysis:
 ### 📚 **Advanced Knowledge Base** ✅
 - **RAG Pipeline**: Retrieval-Augmented Generation for enhanced analysis
 - **Document Processing**: PDF, DOCX, HTML extraction and chunking
-- **Vector Embeddings**: OpenAI text-embedding-ada-002 integration
+- **Vector Embeddings**: OpenAI text-embedding-3-small integration
 - **Concept Extraction**: Financial concepts with CFA-level accuracy
 - **Semantic Search**: Pinecone vector database for knowledge retrieval
 - **Enhanced Analysis**: Context-aware investment recommendations
@@ -318,9 +348,35 @@ Based on system logs and code analysis:
 ### 📊 **Market Intelligence** ✅
 - **Real-time Data**: WebSocket connections for live market updates
 - **News Sentiment**: AI-powered news analysis and impact assessment
-- **Social Sentiment**: Twitter/Reddit mention tracking (planned)
+- **Social Sentiment**: SearXNG-powered search and analysis
 - **Technical Indicators**: RSI, MACD, Bollinger Bands calculation
 - **Market Context**: Comprehensive market condition analysis
+- **STATUS: FULLY IMPLEMENTED & WORKING**
+
+### 🔔 **Advanced Alert System** ✅
+- **Price Alerts**: Threshold-based price monitoring
+- **Technical Alerts**: RSI, MACD, moving average crossovers
+- **Volume Alerts**: Unusual volume activity detection
+- **Real-time Delivery**: WebSocket-based instant notifications
+- **User Management**: Per-user alert creation and management
+- **Alert Analytics**: Historical trigger data and performance metrics
+- **STATUS: FULLY IMPLEMENTED & WORKING**
+
+### ⚡ **Real-time Connectivity** ✅
+- **WebSocket Server**: Live data streaming infrastructure
+- **Multi-client Support**: Concurrent user connections
+- **Subscription Management**: Symbol-based data filtering
+- **Connection Health**: Automatic reconnection and heartbeat monitoring
+- **Authentication**: User-based access control for alerts
+- **STATUS: BACKEND COMPLETE, FRONTEND INTEGRATION NEEDED**
+
+### 🤖 **Background Intelligence Agent** ✅
+- **Auto-start Functionality**: Automatically begins processing on startup
+- **Database Integration**: Fetches and processes all active instruments
+- **Multi-provider Search**: SearXNG, Tavily, Exa, SERP API integration
+- **Document Discovery**: SEC filings, earnings transcripts, company reports
+- **Intelligent Scheduling**: Market-aware processing schedules
+- **Queue Management**: Redis-based task processing
 - **STATUS: FULLY IMPLEMENTED & WORKING**
 
 ### 💱 **Multi-Currency Support** ✅
@@ -332,8 +388,9 @@ Based on system logs and code analysis:
 
 ### 🎛️ **Advanced Dashboard** ✅
 - Tabbed navigation (All Markets, NSE Top 100, NASDAQ Top 100)
-- Intelligent search by symbol or company name
-- Multi-level filtering (Exchange, Asset Class, Signal)
+- Knowledge base management with document upload
+- Document intelligence browser with SEC filing integration
+- Enhanced analysis with RAG and CFA frameworks
 - Interactive instrument details with AI recommendations
 - Responsive design with dark/light mode support
 - **STATUS: FULLY IMPLEMENTED & WORKING**
@@ -365,28 +422,32 @@ Based on system logs and code analysis:
 ## 🎯 **Use Cases**
 
 ### **Individual Investors**
-- Get AI-powered investment recommendations enhanced with CFA knowledge
-- Track portfolio performance across exchanges *(needs implementation)*
+- Get AI-powered investment recommendations enhanced with CFA knowledge ✅
+- Track portfolio performance across exchanges *(needs completion)*
 - Discover high-potential investment opportunities ✅
 - Access real-time market intelligence with document-backed insights ✅
+- Receive instant alerts on price movements and technical signals ✅
 
 ### **Financial Advisors**
 - Provide data-driven advice backed by financial research documents ✅
 - Generate comprehensive market reports with CFA-level analysis ✅
-- Monitor client portfolios across exchanges *(needs implementation)*
+- Monitor client portfolios across exchanges *(needs completion)*
 - Access institutional-grade analytics with knowledge base support ✅
+- Set up automated alerts for client portfolio monitoring ✅
 
 ### **Institutional Traders**
 - Monitor large-scale market movements with enhanced context ✅
-- Execute data-driven trading strategies *(needs implementation)*
+- Execute data-driven trading strategies *(needs completion)*
 - Access real-time risk assessments with historical knowledge ✅
 - Automate investment decision processes with RAG-enhanced AI ✅
+- Receive real-time notifications on market conditions ✅
 
 ### **Research Analysts**
 - Conduct cross-market analysis with comprehensive document library ✅
 - Generate investment research reports with AI assistance ✅
 - Track sector-wise performance with enhanced context ✅
 - Monitor emerging market trends with news sentiment analysis ✅
+- Access automated document discovery and processing ✅
 
 ---
 
@@ -401,19 +462,25 @@ graph TB
     end
     
     subgraph "API Layer"
-        AG[API Gateway<br/>Port 3002]
+        AG[API Gateway<br/>Port 3002<br/>WebSocket Server]
     end
     
     subgraph "Intelligence Services"
+        BA[Background Agent<br/>Auto-start]
         KB[Knowledge Base<br/>RAG Pipeline]
         DI[Document Intelligence<br/>PDF Processing]
         MI[Market Intelligence<br/>Real-time Analysis]
         AE[Analysis Engine<br/>Automation]
+        AS[Alert Service<br/>Real-time Notifications]
     end
     
     subgraph "Data Services"
         DC[Data Collector<br/>Port 3004]
-        JP[Job Processor<br/>Port 3005]
+        JP[Job Processor<br/>Background Tasks]
+    end
+    
+    subgraph "Search Layer"
+        SX[SearXNG<br/>Self-hosted Search<br/>Port 8080]
     end
     
     subgraph "External APIs"
@@ -427,25 +494,32 @@ graph TB
     end
     
     subgraph "Data Layer"
-        PG[(PostgreSQL<br/>Neon)]
+        PG[(PostgreSQL<br/>Neon + TimescaleDB)]
         RD[(Redis<br/>Upstash)]
         CH[(ClickHouse)]
         MG[(MongoDB)]
     end
     
+    FE -.->|WebSocket| AG
     FE --> AG
     AG --> KB
     AG --> DI
     AG --> MI
     AG --> AE
+    AG --> AS
+    AG --> BA
     AG --> DC
     AG --> JP
     AG --> CL
+    BA --> SX
+    BA --> KB
+    BA --> DI
     KB --> OAI
     KB --> PC
     KB --> CL
     DI --> CL
     MI --> CL
+    AS --> AG
     DC --> AV
     DC --> FH
     DC --> YF
@@ -465,9 +539,10 @@ yobi/
 ├── apps/
 │   └── trading-platform/
 │       ├── frontend/           # Next.js 14 application ✅
-│       ├── api-gateway/        # Express.js API server ✅
+│       ├── api-gateway/        # Express.js API server with WebSocket ✅
 │       ├── data-collector/     # Market data ingestion ✅
-│       └── job-processor/      # Background processing 🔄
+│       ├── background-agent/   # AI agent with auto-start ✅
+│       └── searxng/           # Self-hosted search engine ✅
 ├── packages/
 │   ├── knowledge-base/         # RAG Pipeline ✅
 │   ├── document-intelligence/  # Document Processing ✅
@@ -495,17 +570,33 @@ yobi/
   - Advanced search and filtering
   - Interactive modals and charts
   - Currency conversion interface
+  - Knowledge base management UI
+  - Document intelligence browser
+  - Enhanced analysis with RAG
 
 ### **2. API Gateway** (`apps/trading-platform/api-gateway/`) ✅
-- **Technology**: Express.js, TypeScript, Winston logging
+- **Technology**: Express.js, TypeScript, Winston logging, Socket.IO
 - **Responsibilities**:
   - Route management and request handling
   - Authentication and authorization
   - Rate limiting and caching
   - API validation and error handling
   - Integration with intelligence services
+  - **WebSocket server for real-time data**
+  - **Alert system management**
+  - **Real-time data broadcasting**
 
-### **3. Knowledge Base Service** (`packages/knowledge-base/`) ✅
+### **3. Background Agent** (`apps/trading-platform/background-agent/`) ✅
+- **Technology**: TypeScript, Bull Queue, Redis, SearXNG
+- **Capabilities**:
+  - Auto-start functionality with development server
+  - Database-driven instrument processing
+  - Multi-provider web search (SearXNG, Tavily, Exa, SERP)
+  - Document discovery and processing
+  - Intelligent scheduling based on market conditions
+  - Queue-based task management
+
+### **4. Knowledge Base Service** (`packages/knowledge-base/`) ✅
 - **Technology**: TypeScript, OpenAI Embeddings, Pinecone, Claude AI
 - **Capabilities**:
   - RAG pipeline for enhanced analysis
@@ -515,7 +606,7 @@ yobi/
   - Financial concept extraction
   - Context-aware recommendations
 
-### **4. Document Intelligence** (`packages/document-intelligence/`) ✅
+### **5. Document Intelligence** (`packages/document-intelligence/`) ✅
 - **Technology**: TypeScript, Puppeteer, PDF-Parse, Tesseract OCR
 - **Functions**:
   - SEC EDGAR filing discovery
@@ -525,26 +616,36 @@ yobi/
   - Queue-based processing
   - Metadata enrichment
 
-### **5. Market Intelligence** (`packages/market-intelligence/`) ✅
+### **6. Market Intelligence** (`packages/market-intelligence/`) ✅
 - **Technology**: TypeScript, WebSocket, Redis, Bull Queue
 - **Features**:
   - Real-time market data processing
   - News sentiment analysis
-  - Social media monitoring
+  - Social media monitoring via SearXNG
   - Technical indicator calculation
   - Market context aggregation
   - Alert generation
 
-### **6. Analysis Engine** (`packages/analysis-engine/`) ✅
-- **Technology**: TypeScript, Bull Queue, Cron Jobs
-- **Purpose**:
-  - Automated analysis scheduling
-  - Valuation model execution
-  - Report generation
-  - Performance monitoring
-  - Integration orchestration
+### **7. Alert Service** (Integrated in API Gateway) ✅
+- **Technology**: TypeScript, Socket.IO, Redis
+- **Capabilities**:
+  - Multi-type alert support (Price, Technical, Volume, News)
+  - Real-time trigger processing
+  - WebSocket-based notifications
+  - User-specific alert management
+  - Alert history and analytics
+  - Integration with market data streams
 
-### **7. Data Collector** (`apps/trading-platform/data-collector/`) ✅
+### **8. SearXNG Search Engine** (`apps/trading-platform/searxng/`) ✅
+- **Technology**: Docker, Nginx, Python
+- **Features**:
+  - Self-hosted search engine
+  - Cost-free operation
+  - Privacy-focused
+  - Multiple search engine aggregation
+  - Financial data source integration
+
+### **9. Data Collector** (`apps/trading-platform/data-collector/`) ✅
 - **Technology**: Node.js, TypeScript, Python scripts
 - **Functions**:
   - Real-time market data collection
@@ -569,7 +670,20 @@ User Request → API Gateway → Knowledge Base → Document Retrieval → AI An
 4. **AI Enhancement**: Generate analysis using Claude with knowledge context
 5. **Response Formation**: Return investment recommendations with knowledge citations
 
-### **2. Document Ingestion Pipeline** ✅
+### **2. Real-time Data Flow** ✅
+
+```
+Market Data → Data Collector → Database → Alert Processing → WebSocket Broadcasting → Frontend
+```
+
+1. **Collection**: Data collector fetches from multiple providers
+2. **Processing**: Normalize and validate market data
+3. **Storage**: Store in PostgreSQL/TimescaleDB with caching
+4. **Alert Processing**: Check triggers and generate notifications
+5. **Broadcasting**: Send real-time updates via WebSocket
+6. **Frontend Update**: Live dashboard updates
+
+### **3. Document Ingestion Pipeline** ✅
 
 ```
 Document Discovery → Content Extraction → Chunking → Embedding → Vector Storage → Indexing
@@ -582,17 +696,18 @@ Document Discovery → Content Extraction → Chunking → Embedding → Vector 
 5. **Storage**: Pinecone vector database indexing
 6. **Enrichment**: Metadata tagging and categorization
 
-### **3. Market Data Pipeline** ✅
+### **4. Background Processing Flow** ✅
 
 ```
-External APIs → Data Collector → Validation → Database Storage → Cache Update → Analysis
+Auto-start → Database Fetch → Task Queue → Multi-provider Search → Document Processing → Insights Generation
 ```
 
-1. **Collection**: Data collector fetches from Alpha Vantage, Finnhub, Yahoo Finance
-2. **Processing**: Normalize data format, validate integrity
-3. **Storage**: Store in PostgreSQL with proper exchange/currency assignments
-4. **Caching**: Update Redis cache for fast access
-5. **Analysis**: Trigger analysis engine for updated recommendations
+1. **Auto-start**: Background agent starts with development server
+2. **Database Integration**: Fetch all active instruments
+3. **Task Management**: Queue-based processing with Redis
+4. **Search Intelligence**: Multi-provider web search and analysis
+5. **Document Discovery**: Automated SEC filing and earnings processing
+6. **Insight Generation**: AI-powered analysis and recommendations
 
 ---
 
@@ -605,6 +720,7 @@ External APIs → Data Collector → Validation → Database Storage → Cache U
 - **State Management**: React Query (TanStack Query) ✅
 - **UI Components**: Custom components with accessibility ✅
 - **Authentication**: NextAuth.js ✅
+- **Real-time**: WebSocket integration *(frontend needs connection)*
 
 ### **Backend Services**
 - **API Framework**: Express.js ✅
@@ -613,20 +729,22 @@ External APIs → Data Collector → Validation → Database Storage → Cache U
 - **Validation**: express-validator ✅
 - **Logging**: Winston ✅
 - **Queue Management**: Bull Queue with Redis ✅
+- **Real-time**: Socket.IO WebSocket server ✅
 
 ### **Intelligence & AI**
 - **AI Platform**: Anthropic Claude 4 Sonnet ✅
-- **Embeddings**: OpenAI text-embedding-ada-002 ✅
+- **Embeddings**: OpenAI text-embedding-3-small ✅
 - **Vector Database**: Pinecone ✅
 - **Document Processing**: PDF-Parse, Mammoth, Tesseract ✅
 - **Web Scraping**: Puppeteer ✅
+- **Search Engine**: SearXNG self-hosted ✅
 - **Concept Extraction**: Regex + AI hybrid approach ✅
 
 ### **Data Collection**
 - **Runtime**: Node.js + Python ✅
 - **APIs**: Alpha Vantage, Finnhub, Yahoo Finance ✅
 - **Scheduling**: node-cron ✅
-- **WebSockets**: Real-time market data streams 🔄
+- **WebSockets**: Real-time market data streams ✅
 - **Data Processing**: Custom TypeScript/Python pipelines ✅
 
 ### **Databases**
@@ -641,6 +759,7 @@ External APIs → Data Collector → Validation → Database Storage → Cache U
 - **Package Manager**: pnpm ✅
 - **Code Quality**: ESLint, Prettier, TypeScript strict mode ✅
 - **Version Control**: Git with conventional commits ✅
+- **Search**: SearXNG self-hosted search engine ✅
 
 ---
 
@@ -650,6 +769,7 @@ External APIs → Data Collector → Validation → Database Storage → Cache U
 - **Node.js**: v18.0.0 or higher ✅
 - **pnpm**: v8.0.0 or higher ✅
 - **Python**: v3.8+ (for data collection scripts) ✅
+- **Docker**: Latest version (for SearXNG) ✅
 - **Git**: Latest version ✅
 
 ### **External Services**
@@ -677,7 +797,8 @@ CORS_ORIGIN=http://localhost:3000
 FRONTEND_PORT=3000
 API_GATEWAY_PORT=3002
 DATA_COLLECTOR_PORT=3004
-JOB_PROCESSOR_PORT=3005
+BACKGROUND_AGENT_PORT=3003
+SEARXNG_PORT=8080
 
 # Database Configuration
 DATABASE_URL="postgresql://username:password@host:port/database"
@@ -696,36 +817,33 @@ ALPHA_VANTAGE_API_KEY="your_alpha_vantage_key"            # Market Data
 FINNHUB_API_KEY="your_finnhub_key"                        # Financial Data
 EXCHANGE_RATES_API_KEY="your_exchange_rates_key"          # Currency Conversion
 
+# Search Configuration (SearXNG)
+SEARXNG_URL="http://localhost:8080"
+SEARXNG_SECRET_KEY="16b7JskJjrrQoMKXWyoMAoVV7MwXl4rItkCUkRL4aDM="
+
+# Background Agent APIs (Optional)
+TAVILY_API_KEY="your_tavily_api_key"                      # News search
+EXA_API_KEY="your_exa_api_key"                           # Web search
+SERP_API_KEY="your_serp_api_key"                         # Search results
+
 # Authentication & Security
 NEXTAUTH_SECRET="your_nextauth_secret_32_chars_min"
 NEXTAUTH_URL="http://localhost:3000"
 JWT_SECRET="your_jwt_secret"
 
-# AWS S3 (Optional - for document storage)
+# AWS S3 (For document storage)
 AWS_ACCESS_KEY_ID="your_aws_access_key"
 AWS_SECRET_ACCESS_KEY="your_aws_secret_key"
 AWS_S3_BUCKET="trading-platform-documents"
 AWS_REGION="us-east-1"
 
-# Knowledge Base Configuration
-KNOWLEDGE_BASE_INDEX="yobi-knowledge"
-EMBEDDING_MODEL="text-embedding-ada-002"
-CHUNK_SIZE=1000
-CHUNK_OVERLAP=200
-MAX_RETRIEVAL_RESULTS=10
-
-# Market Intelligence
+# WebSocket Configuration
 WEBSOCKET_ENABLED=true
-NEWS_SENTIMENT_ENABLED=true
-SOCIAL_SENTIMENT_ENABLED=false                           # Not implemented yet
-TECHNICAL_INDICATORS_ENABLED=true
+WEBSOCKET_PORT=3002
 
-# Document Intelligence
-AUTO_DISCOVERY_ENABLED=true
-SEC_EDGAR_ENABLED=true
-COMPANY_IR_ENABLED=true
-EARNINGS_TRANSCRIPTS_ENABLED=false                       # Planned feature
-OCR_ENABLED=true
+# Alert System Configuration
+ALERTS_ENABLED=true
+ALERT_CHECK_INTERVAL=5000                                # 5 seconds
 ```
 
 ### **API Gateway** (`apps/trading-platform/api-gateway/.env`)
@@ -735,76 +853,35 @@ NODE_ENV=development
 DATABASE_URL=$DATABASE_URL
 REDIS_URL=$REDIS_URL
 ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
-CORS_ORIGIN="http://localhost:3000"
-RATE_LIMIT_WINDOW_MS=900000                              # 15 minutes
-RATE_LIMIT_MAX=100                                       # 100 requests per window
-```
-
-### **Knowledge Base** (`packages/knowledge-base/.env`)
-```bash
-# AI Configuration
-ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
 OPENAI_API_KEY=$OPENAI_API_KEY
-
-# Vector Database
 PINECONE_API_KEY=$PINECONE_API_KEY
-PINECONE_INDEX_NAME=$PINECONE_INDEX_NAME
-PINECONE_ENVIRONMENT="us-east1-gcp"                     # Your Pinecone environment
-
-# Processing Configuration
-EMBEDDING_MODEL="text-embedding-ada-002"
-CHUNK_SIZE=1000
-CHUNK_OVERLAP=200
-MAX_RETRIEVAL_RESULTS=10
-SIMILARITY_THRESHOLD=0.7
-
-# Queue Configuration
-REDIS_URL=$REDIS_URL
-QUEUE_CONCURRENCY=5
-PROCESSING_TIMEOUT=300000                               # 5 minutes
+CORS_ORIGIN="http://localhost:3000"
+WEBSOCKET_ENABLED=true
+ALERTS_ENABLED=true
 ```
 
-### **Document Intelligence** (`packages/document-intelligence/.env`)
+### **Background Agent** (`apps/trading-platform/background-agent/.env`)
 ```bash
-# AI Configuration
-ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
-
-# Web Scraping
-PUPPETEER_HEADLESS=true
-PUPPETEER_TIMEOUT=30000
-MAX_PAGES_PER_SITE=50
-
-# Document Processing
-MAX_FILE_SIZE_MB=100
-SUPPORTED_FORMATS="pdf,docx,html,txt"
-OCR_ENABLED=true
-OCR_LANGUAGE="eng"
-
-# SEC EDGAR Configuration
-SEC_USER_AGENT="Yobi Trading Platform (support@yobi.com)"
-SEC_REQUEST_DELAY=100                                   # Milliseconds between requests
-```
-
-### **Data Collector** (`apps/trading-platform/data-collector/.env`)
-```bash
-PORT=3004
 NODE_ENV=development
 DATABASE_URL=$DATABASE_URL
 REDIS_URL=$REDIS_URL
-ALPHA_VANTAGE_API_KEY=$ALPHA_VANTAGE_API_KEY
-FINNHUB_API_KEY=$FINNHUB_API_KEY
-COLLECTION_INTERVAL=300000                              # 5 minutes
-BATCH_SIZE=100
-REQUEST_DELAY=200                                       # Milliseconds between API calls
+SEARXNG_URL=$SEARXNG_URL
+TAVILY_API_KEY=$TAVILY_API_KEY
+EXA_API_KEY=$EXA_API_KEY
+SERP_API_KEY=$SERP_API_KEY
+ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
+AUTO_START=true
+PROCESS_EXISTING_INSTRUMENTS=true
 ```
 
-### **Frontend** (`apps/trading-platform/frontend/.env.local`)
+### **SearXNG Setup** (`apps/trading-platform/searxng/`)
 ```bash
-NEXT_PUBLIC_API_URL="http://localhost:3002"
-NEXTAUTH_SECRET=$NEXTAUTH_SECRET
-NEXTAUTH_URL="http://localhost:3000"
-NEXT_PUBLIC_WEBSOCKET_URL="ws://localhost:3002"
-NEXT_PUBLIC_ENABLE_ANALYTICS=false
+# Start SearXNG search engine
+cd apps/trading-platform/searxng
+chmod +x setup.sh
+./setup.sh
+
+# Verify at http://localhost:8080
 ```
 
 ---
@@ -829,6 +906,7 @@ pnpm install
 cp .env.example .env
 cp apps/trading-platform/api-gateway/.env.example apps/trading-platform/api-gateway/.env
 cp apps/trading-platform/data-collector/.env.example apps/trading-platform/data-collector/.env
+cp apps/trading-platform/background-agent/.env.example apps/trading-platform/background-agent/.env
 cp apps/trading-platform/frontend/.env.example apps/trading-platform/frontend/.env.local
 
 # Edit each .env file with your configuration
@@ -848,7 +926,17 @@ cp apps/trading-platform/frontend/.env.example apps/trading-platform/frontend/.e
 2. **Upstash Redis**: [upstash.com](https://upstash.com) - Create Redis instance
 3. **Pinecone Index**: Create vector database index with 1536 dimensions (OpenAI embeddings)
 
-### **5. Database Initialization**
+### **5. SearXNG Setup (Self-hosted Search)**
+```bash
+# Set up SearXNG search engine
+cd apps/trading-platform/searxng
+chmod +x setup.sh
+./setup.sh
+
+# Wait for startup, then verify at http://localhost:8080
+```
+
+### **6. Database Initialization**
 ```bash
 # Generate Prisma client
 cd packages/database
@@ -857,6 +945,9 @@ pnpm prisma generate
 # Run database migrations
 pnpm prisma migrate deploy
 
+# Enable TimescaleDB (for time-series data)
+pnpm timescale:setup
+
 # Seed initial data (optional)
 pnpm prisma db seed
 
@@ -864,27 +955,39 @@ pnpm prisma db seed
 cd ../..
 ```
 
-### **6. Build All Packages**
+### **7. Build All Packages**
 ```bash
 # Build all packages
 pnpm build
 ```
 
-### **7. Start Development Environment**
+### **8. Start Development Environment**
 ```bash
-# Start all services in development mode
+# Start all services (recommended)
 pnpm dev
+
+# This will start:
+# - Frontend (port 3000)
+# - API Gateway with WebSocket (port 3002)
+# - Data Collector (port 3004)
+# - Background Agent (auto-start)
+# - SearXNG (port 8080, if set up)
 
 # Or start individual services
 pnpm dev:frontend      # Frontend only
 pnpm dev:api-gateway   # API Gateway only
 pnpm dev:data-collector # Data Collector only
+pnpm dev:background-agent # Background Agent only
 ```
 
-### **8. Verify Installation**
+### **9. Verify Installation**
 ```bash
 # Check API Gateway health
-curl http://localhost:3002/api/health
+curl http://localhost:3002/health
+
+# Check WebSocket server
+# Should show WebSocket server status
+curl http://localhost:3002/health
 
 # Check knowledge base status
 curl http://localhost:3002/api/knowledge/health
@@ -892,11 +995,14 @@ curl http://localhost:3002/api/knowledge/health
 # Check data collection status
 curl http://localhost:3004/api/health
 
+# Check SearXNG (if set up)
+curl http://localhost:8080
+
 # Trigger initial data collection
 curl -X POST http://localhost:3004/collect/all-exchanges
 ```
 
-### **9. Load Initial Knowledge Base (Optional)**
+### **10. Load Initial Knowledge Base (Optional)**
 ```bash
 # Upload sample financial documents
 curl -X POST "http://localhost:3002/api/knowledge/documents/upload" \
@@ -915,6 +1021,58 @@ curl -X POST "http://localhost:3002/api/knowledge/documents/upload" \
 - **Development**: `http://localhost:3002`
 
 ### **Core Endpoints**
+
+#### **WebSocket API** ✅
+Real-time updates available at:
+```
+ws://localhost:3002/ws
+```
+
+**Connection:**
+```javascript
+const socket = io('http://localhost:3002');
+
+// Authenticate for alerts
+socket.emit('authenticate', { userId: 'user_id' });
+
+// Subscribe to market data
+socket.emit('subscribe', { 
+  symbols: ['AAPL', 'MSFT'], 
+  type: 'quotes' 
+});
+
+// Listen for real-time data
+socket.on('market_data', (data) => {
+  console.log('Live market data:', data);
+});
+
+// Listen for alerts
+socket.on('alert_triggered', (alert) => {
+  console.log('Alert triggered:', alert);
+});
+```
+
+#### **Alert System API** ✅
+```http
+# Create price alert
+POST /api/alerts
+{
+  "userId": "user_id",
+  "symbol": "AAPL",
+  "type": "PRICE",
+  "condition": {
+    "operator": "above",
+    "value": 150.00
+  },
+  "message": "AAPL above $150"
+}
+
+# Get user alerts
+GET /api/alerts?userId=user_id
+
+# Deactivate alert
+DELETE /api/alerts/:alertId
+```
 
 #### **Knowledge Base API** ✅
 ```http
@@ -937,9 +1095,6 @@ POST /api/knowledge/analysis/enhanced
   "analysisType": "FUNDAMENTAL",
   "includeKnowledge": true
 }
-
-# Get knowledge base statistics
-GET /api/knowledge/stats
 ```
 
 #### **Document Intelligence API** ✅
@@ -950,14 +1105,6 @@ POST /api/documents/discover
   "symbol": "AAPL",
   "sources": ["SEC", "COMPANY_IR"],
   "documentTypes": ["10-K", "10-Q"]
-}
-
-# Process document
-POST /api/documents/process
-{
-  "url": "https://sec.gov/...",
-  "documentType": "10-K",
-  "symbol": "AAPL"
 }
 
 # Get processed documents
@@ -985,28 +1132,6 @@ GET /api/rankings
 - `exchange` (optional): Filter by exchange (NSE, NASDAQ)
 - `assetClass` (optional): Filter by asset class
 - `signal` (optional): Filter by signal type
-
-#### **Enhanced Analysis API** ✅
-```http
-POST /api/analysis/enhanced
-{
-  "symbol": "AAPL",
-  "includeKnowledge": true,
-  "analysisType": "FUNDAMENTAL",
-  "timeHorizon": "MEDIUM_TERM"
-}
-```
-
-### **WebSocket API** 🔄
-Real-time updates available at:
-```
-ws://localhost:3002/ws
-```
-
-**Subscription Topics:**
-- `market_data`: Real-time price updates
-- `news_sentiment`: News sentiment analysis
-- `analysis_updates`: Enhanced analysis notifications
 
 ---
 
@@ -1050,18 +1175,26 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
+      - WEBSOCKET_ENABLED=true
     depends_on:
       - postgres
       - redis
 
-  knowledge-base:
-    build: ./packages/knowledge-base
+  background-agent:
+    build: ./apps/trading-platform/background-agent
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - NODE_ENV=production
+      - AUTO_START=true
     depends_on:
+      - postgres
       - redis
+
+  searxng:
+    build: ./apps/trading-platform/searxng
+    ports:
+      - "8080:8080"
+    volumes:
+      - searxng_data:/etc/searxng
 
   data-collector:
     build: ./apps/trading-platform/data-collector
@@ -1074,7 +1207,7 @@ services:
       - redis
 
   postgres:
-    image: postgres:15
+    image: timescale/timescaledb:latest-pg14
     environment:
       POSTGRES_DB: yobi
       POSTGRES_USER: yobi
@@ -1090,6 +1223,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  searxng_data:
 ```
 
 ---
@@ -1100,7 +1234,7 @@ volumes:
 - [x] Monorepo setup with Turborepo
 - [x] TypeScript configuration across all packages
 - [x] Database layer with Prisma
-- [x] API Gateway with Express.js
+- [x] API Gateway with Express.js and WebSocket support
 - [x] Frontend with Next.js 14
 - [x] Data collection pipeline
 - [x] Basic market analysis
@@ -1122,14 +1256,19 @@ volumes:
 - [x] Company IR page scraping
 - [x] News sentiment analysis
 - [x] Technical indicator calculations
+- [x] Background agent with auto-start
+- [x] SearXNG self-hosted search engine
+- [x] Real-time WebSocket server
+- [x] Comprehensive alert system
 
 ### **Phase 3: Real-time & Portfolio** 🔄 **IN PROGRESS**
 - [x] Real-time data collection
-- [ ] **WebSocket integration for frontend** 🔴
-- [ ] **Portfolio management system** 🔴
-- [ ] **Background job processing** 🔴
-- [ ] **Alert system implementation** 🔴
-- [ ] **Real-time technical analysis** 🔴
+- [x] WebSocket server implementation
+- [x] Alert system backend
+- [ ] **Frontend WebSocket integration** 🔴
+- [ ] **Portfolio management completion** 🔴
+- [ ] **Background job processing enhancement** 🔄
+- [ ] **Real-time technical analysis dashboard** 🔴
 
 ### **Phase 4: Advanced Analytics** 📋 **PLANNED**
 - [ ] **Backtesting framework** 🔴
@@ -1137,7 +1276,7 @@ volumes:
 - [ ] **Performance attribution** 🔴
 - [ ] **Risk modeling** 🔴
 - [ ] **Options analytics** 🔴
-- [ ] **Social sentiment analysis** 🔴
+- [ ] **Social sentiment analysis expansion** 🔴
 
 ### **Phase 5: Production Features** 📋 **PLANNED**
 - [x] **TimescaleDB migration** ✅ **COMPLETED**
@@ -1187,22 +1326,50 @@ volumes:
    - Real-time data display
    - Advanced search and filtering
    - Interactive charts and analytics
+   - Knowledge base management interface
+   - Document intelligence browser
+
+7. **Real-time Infrastructure**
+   - WebSocket server with multi-client support
+   - Live data broadcasting every 5 seconds
+   - Symbol-based subscription management
+   - Connection health monitoring
+
+8. **Comprehensive Alert System**
+   - Multiple alert types (Price, Technical, Volume, News)
+   - Real-time trigger processing
+   - WebSocket-based instant notifications
+   - User-specific alert management
+   - Alert history and analytics
+
+9. **Background Intelligence Agent**
+   - Auto-start functionality
+   - Database-driven processing
+   - Multi-provider search integration
+   - Document discovery automation
+   - Intelligent scheduling
+
+10. **Self-hosted Search Engine**
+    - SearXNG integration for cost-free operation
+    - Privacy-focused search
+    - Multiple engine aggregation
+    - Financial data source integration
 
 ### **🔄 In Development**
-1. **Real-time WebSocket Integration**
-   - Live price streaming to frontend
-   - Real-time portfolio updates
-   - Live notifications and alerts
+1. **Frontend WebSocket Integration**
+   - Connect frontend to existing WebSocket server
+   - Real-time dashboard updates
+   - Live alert notifications
 
-2. **Portfolio Management**
-   - Position tracking and P&L
-   - Risk assessment and monitoring
-   - Performance analytics
+2. **Portfolio Management Completion**
+   - Complete position tracking implementation
+   - P&L calculation engine
+   - Risk assessment dashboard
 
-3. **Background Processing**
-   - Automated indicator calculations
-   - Report generation
-   - Alert processing
+3. **Background Processing Enhancement**
+   - Integrate agent with technical calculations
+   - Automated report generation
+   - Enhanced pipeline processing
 
 ### **🚀 Recently Completed**
 1. **TimescaleDB Integration** ✅ **PRODUCTION READY**
@@ -1212,11 +1379,23 @@ volumes:
    - NPM scripts for easy setup: db:timescale:setup, db:timescale:health, db:timescale:demo
    - Production-ready with comprehensive error handling
 
+2. **Real-time WebSocket System** ✅ **BACKEND COMPLETE**
+   - WebSocket server implemented in API Gateway
+   - Live data broadcasting infrastructure
+   - Multi-client connection management
+   - Authentication and subscription system
+
+3. **Alert System** ✅ **FULLY FUNCTIONAL**
+   - Comprehensive alert types and triggers
+   - Real-time processing and notifications
+   - User management and history tracking
+   - WebSocket-based delivery system
+
 ### **📋 Next Priority Development**
-1. **Real-time WebSocket Integration** - Live price streaming and portfolio updates
-2. **Backtesting Framework** - Strategy simulation and performance validation
-3. **Advanced Portfolio Analytics** - Risk attribution and optimization algorithms
-4. **Watchlist Management** - Create, manage, and alert system
+1. **Frontend WebSocket Integration** - Connect dashboard to live data streams
+2. **Portfolio Management Completion** - Finish position tracking and analytics
+3. **Backtesting Framework** - Strategy simulation and performance validation
+4. **Advanced Portfolio Analytics** - Risk attribution and optimization algorithms
 
 ---
 
@@ -1226,10 +1405,11 @@ volumes:
 1. Clone repository and install dependencies
 2. Set up external services (Anthropic, OpenAI, Pinecone, Alpha Vantage, Finnhub)
 3. Configure environment variables
-4. **Enable TimescaleDB extension** (see [TimescaleDB Setup Guide](docs/TIMESCALEDB_SETUP.md))
-5. Run database migrations
-6. Start development services: `pnpm dev`
-7. Access dashboard at `http://localhost:3000`
+4. **Set up SearXNG** (optional, for cost-free search): `cd apps/trading-platform/searxng && ./setup.sh`
+5. **Enable TimescaleDB extension** (see [TimescaleDB Setup Guide](docs/TIMESCALEDB_SETUP.md))
+6. Run database migrations
+7. Start development services: `pnpm dev`
+8. Access dashboard at `http://localhost:3000`
 
 ### **⚡ TimescaleDB Setup (Performance Boost)**
 
@@ -1256,20 +1436,44 @@ npm run db:timescale:demo
 - 🗜️ 90% storage reduction with compression
 - ⚡ Real-time aggregated market data views
 
+### **🔍 SearXNG Setup (Cost-free Search)**
+
+For cost-free web search capabilities:
+
+```bash
+# 1. Set up SearXNG search engine
+cd apps/trading-platform/searxng
+chmod +x setup.sh
+./setup.sh
+
+# 2. Verify at http://localhost:8080
+# 3. Background agent will automatically use SearXNG
+```
+
+**Benefits**:
+- 🆓 Cost-free search operations
+- 🔒 Privacy-focused search
+- 🔍 Multiple search engine aggregation
+- 📊 Financial data source integration
+
 ### **For Traders/Analysts**
 1. Access the web dashboard at `http://localhost:3000`
 2. Explore real-time market data across NSE and NASDAQ
 3. Use AI-powered analysis for investment decisions
-4. Upload financial documents to enhance analysis
-5. Monitor rankings and signals for trading opportunities
+4. Upload financial documents to enhance analysis with `/knowledge`
+5. Browse SEC filings automatically with `/documents`
+6. Generate professional investment analysis with `/analysis`
+7. Monitor rankings and signals for trading opportunities
+8. Set up price and technical alerts for portfolio monitoring
 
 ### **For Enterprises**
 1. Review deployment guidelines
-2. Set up production infrastructure
+2. Set up production infrastructure with Docker Compose
 3. Configure enterprise authentication
 4. Load proprietary research documents
 5. Customize analysis models
-6. Integrate with existing systems
+6. Integrate with existing systems via API
+7. Set up monitoring and alerting infrastructure
 
 ---
 
@@ -1281,6 +1485,10 @@ npm run db:timescale:demo
 4. **Production-Ready Architecture**: Enterprise-grade microservices with comprehensive monitoring
 5. **Real Market Data**: Active collection from multiple providers with 1000+ instruments
 6. **Advanced Technical Analysis**: Complete suite of indicators with optimized calculations
+7. **Real-time Infrastructure**: WebSocket-based live data streaming and alerts
+8. **Self-hosted Search**: Cost-free SearXNG integration for privacy and cost optimization
+9. **Background Intelligence**: Automated document discovery and processing
+10. **TimescaleDB Integration**: 10-100x performance improvement for time-series data
 
 ---
 
@@ -1294,8 +1502,8 @@ npm run db:timescale:demo
 5. Open Pull Request
 
 ### **Priority Contribution Areas**
-- **WebSocket Integration**: Real-time frontend updates
-- **Portfolio Management**: Position tracking and P&L calculations
+- **Frontend WebSocket Integration**: Connect dashboard to live data streams
+- **Portfolio Management Completion**: Position tracking and P&L calculations
 - **Backtesting Framework**: Strategy simulation and optimization
 - **Performance Optimization**: Database and API improvements
 - **Testing**: Comprehensive test coverage
@@ -1314,6 +1522,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **AI Partners**: Anthropic Claude, OpenAI
 - **Data Providers**: Alpha Vantage, Finnhub, Yahoo Finance
 - **Infrastructure**: Neon, Upstash, Pinecone, Vercel
+- **Search**: SearXNG self-hosted search engine
 - **Open Source Community**: TypeScript, Next.js, Prisma, and countless other projects
 
 ---

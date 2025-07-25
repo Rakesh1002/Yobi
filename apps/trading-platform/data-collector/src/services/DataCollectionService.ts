@@ -3,6 +3,8 @@ import { YahooFinanceProvider } from '../providers/YahooFinanceProvider'
 import { YFinanceProvider } from '../providers/YFinanceProvider'
 import { FinnhubProvider } from '../providers/FinnhubProvider'
 import { DatabaseManager } from './DatabaseManager'
+import { TechnicalAnalysisService } from './TechnicalAnalysisService'
+import { instrumentDiscoveryService } from './InstrumentDiscoveryService'
 import { createLogger } from '../utils/logger'
 
 const logger = createLogger('data-collection')
@@ -219,6 +221,7 @@ export class DataCollectionService {
   private yfinance: YFinanceProvider
   private finnhub: FinnhubProvider
   private database: DatabaseManager
+  private technicalAnalysis: TechnicalAnalysisService
 
   constructor() {
     this.alphaVantage = new AlphaVantageProvider()
@@ -226,12 +229,25 @@ export class DataCollectionService {
     this.yfinance = new YFinanceProvider()
     this.finnhub = new FinnhubProvider()
     this.database = new DatabaseManager()
+    this.technicalAnalysis = new TechnicalAnalysisService()
   }
 
-  // Collect quotes with optional exchange filtering
-  async collectQuotes(symbols: string[] = DEFAULT_SYMBOLS): Promise<void> {
+  // Collect quotes for tracked instruments (dynamic)
+  async collectQuotes(symbols?: string[]): Promise<void> {
     try {
-      logger.info(`Starting quote collection for ${symbols.length} symbols`)
+      // If no symbols provided, get tracked instruments
+      if (!symbols) {
+        const trackedInstruments = await instrumentDiscoveryService.getTrackedInstruments()
+        symbols = trackedInstruments.map(i => i.symbol)
+        logger.info(`Collecting quotes for ${symbols.length} dynamically tracked instruments`)
+      } else {
+        logger.info(`Collecting quotes for ${symbols.length} specified symbols`)
+      }
+
+      if (symbols.length === 0) {
+        logger.warn('No symbols to collect quotes for')
+        return
+      }
       
       // Process symbols in batches
       const batchSize = 10
@@ -282,6 +298,88 @@ export class DataCollectionService {
     await this.collectNseQuotes()
     
     logger.info('Completed quote collection for both exchanges')
+  }
+
+  // Collect quotes based on market hours (smart collection)
+  async collectActiveMarketQuotes(): Promise<void> {
+    const now = new Date()
+    
+    // Check US market hours (Eastern Time)
+    const isUSMarketOpen = this.isUSMarketHours()
+    
+    // Check Indian market hours (IST)
+    const isIndianMarketOpen = this.isIndianMarketHours()
+    
+    const promises: Promise<void>[] = []
+    
+    if (isUSMarketOpen) {
+      logger.info('US market is open - collecting NASDAQ quotes')
+      promises.push(this.collectNasdaqQuotes())
+    }
+    
+    if (isIndianMarketOpen) {
+      logger.info('Indian market is open - collecting NSE quotes')
+      promises.push(this.collectNseQuotes())
+    }
+    
+    if (promises.length === 0) {
+      logger.info('No markets are currently open')
+      return
+    }
+    
+    // Collect from all active markets in parallel
+    await Promise.all(promises)
+    logger.info(`Completed collection from ${promises.length} active market(s)`)
+  }
+
+  private isUSMarketHours(): boolean {
+    const now = new Date()
+    const easternTimeString = now.toLocaleString('en-US', {
+      timeZone: 'America/New_York',
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+    
+    const weekdayMatch = easternTimeString.match(/^(Mon|Tue|Wed|Thu|Fri)/)
+    const timeMatch = easternTimeString.match(/(\d{2}):(\d{2})/)
+    
+    if (!weekdayMatch || !timeMatch || !timeMatch[1] || !timeMatch[2]) return false
+    
+    const hour = parseInt(timeMatch[1], 10)
+    const minute = parseInt(timeMatch[2], 10)
+    const timeInMinutes = hour * 60 + minute
+    
+    const marketOpen = 9 * 60 + 30  // 9:30 AM
+    const marketClose = 16 * 60     // 4:00 PM
+    
+    return timeInMinutes >= marketOpen && timeInMinutes <= marketClose
+  }
+
+  private isIndianMarketHours(): boolean {
+    const now = new Date()
+    const istTimeString = now.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+    
+    const weekdayMatch = istTimeString.match(/^(Mon|Tue|Wed|Thu|Fri)/)
+    const timeMatch = istTimeString.match(/(\d{2}):(\d{2})/)
+    
+    if (!weekdayMatch || !timeMatch || !timeMatch[1] || !timeMatch[2]) return false
+    
+    const hour = parseInt(timeMatch[1], 10)
+    const minute = parseInt(timeMatch[2], 10)
+    const timeInMinutes = hour * 60 + minute
+    
+    const marketOpen = 9 * 60       // 9:00 AM
+    const marketClose = 16 * 60     // 4:00 PM
+    
+    return timeInMinutes >= marketOpen && timeInMinutes <= marketClose
   }
 
   async collectHistoricalData(symbols: string[] = DEFAULT_SYMBOLS, period: string = '1y'): Promise<void> {
@@ -346,6 +444,162 @@ export class DataCollectionService {
     }
     
     logger.info('Fundamental data collection completed')
+  }
+
+  /**
+   * Calculate technical indicators for collected symbols
+   */
+  async calculateTechnicalIndicators(symbols: string[] = DEFAULT_SYMBOLS): Promise<void> {
+    logger.info(`Starting technical analysis for ${symbols.length} symbols`)
+    
+    try {
+      const results = await this.technicalAnalysis.calculateIndicatorsForSymbols(symbols)
+      
+      logger.info(`Calculated technical indicators for ${results.size} symbols`)
+      
+      // Log some results for verification
+      for (const [symbol, indicators] of results) {
+        logger.info(`${symbol}: RSI=${indicators.rsi?.toFixed(2)}, Signal=${indicators.signal}, Strength=${indicators.signalStrength.toFixed(2)}`)
+      }
+      
+    } catch (error) {
+      logger.error('Technical analysis failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Calculate technical indicators for a single symbol
+   */
+  async calculateIndicatorsForSymbol(symbol: string): Promise<void> {
+    try {
+      logger.info(`Calculating technical indicators for ${symbol}`)
+      
+      const indicators = await this.technicalAnalysis.calculateIndicators(symbol)
+      
+      if (indicators) {
+        logger.info(`${symbol}: RSI=${indicators.rsi?.toFixed(2)}, Signal=${indicators.signal}, Strength=${indicators.signalStrength.toFixed(2)}`)
+      } else {
+        logger.warn(`No technical indicators calculated for ${symbol}`)
+      }
+      
+    } catch (error) {
+      logger.error(`Technical analysis failed for ${symbol}:`, error)
+    }
+  }
+
+  /**
+   * Complete data collection workflow: quotes + fundamentals + technical analysis
+   */
+  async collectCompleteDataset(symbols?: string[]): Promise<void> {
+    try {
+      // If no symbols provided, get tracked instruments
+      if (!symbols) {
+        const trackedInstruments = await instrumentDiscoveryService.getTrackedInstruments()
+        symbols = trackedInstruments.map(i => i.symbol)
+      }
+
+      logger.info(`Starting complete data collection for ${symbols.length} symbols`)
+      
+      // Step 1: Collect market quotes
+      await this.collectQuotes(symbols)
+      
+      // Step 2: Calculate technical indicators (after market data is available)
+      await this.calculateTechnicalIndicators(symbols)
+      
+      // Step 3: Collect fundamental data (rate limited)
+      if (process.env.ALPHA_VANTAGE_API_KEY) {
+        logger.info('Starting fundamental data collection...')
+        await this.collectFundamentalData(symbols.slice(0, 10)) // Limit to 10 symbols due to API limits
+      } else {
+        logger.warn('Skipping fundamental data collection - no Alpha Vantage API key')
+      }
+      
+      logger.info('Complete data collection workflow finished')
+      
+    } catch (error) {
+      logger.error('Complete data collection failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Discover and add a new instrument when user searches for it
+   */
+  async discoverAndTrackInstrument(symbol: string): Promise<void> {
+    try {
+      logger.info(`Discovering new instrument: ${symbol}`)
+      
+      // Use the discovery service
+      const instrumentInfo = await instrumentDiscoveryService.discoverInstrument(symbol)
+      
+      if (instrumentInfo) {
+        logger.info(`Successfully discovered ${symbol}, triggering initial data collection`)
+        
+        // Collect initial data for the new instrument
+        await this.collectQuotes([symbol])
+        
+        // Trigger fundamental data collection if API available
+        if (process.env.ALPHA_VANTAGE_API_KEY) {
+          await this.collectFundamentalData([symbol])
+        }
+      } else {
+        logger.warn(`Could not discover instrument: ${symbol}`)
+      }
+      
+    } catch (error) {
+      logger.error(`Failed to discover and track instrument ${symbol}:`, error)
+      throw error
+    }
+  }
+
+  /**
+   * Maintain top 1000 instruments by volume and user interest
+   */
+  async maintainTopInstruments(): Promise<void> {
+    try {
+      logger.info('Maintaining top instruments list')
+      
+      // Step 1: Discover trending instruments
+      const trending = await instrumentDiscoveryService.discoverTrendingInstruments()
+      
+      // Step 2: Add trending instruments to tracking
+      for (const symbol of trending) {
+        try {
+          await instrumentDiscoveryService.discoverInstrument(symbol)
+        } catch (error) {
+          logger.warn(`Failed to add trending instrument ${symbol}:`, error)
+        }
+      }
+      
+      // Step 3: Update priorities based on volume and usage
+      await instrumentDiscoveryService.updateInstrumentPriorities()
+      
+      // Step 4: Clean up low-priority instruments to maintain limit
+      await instrumentDiscoveryService.maintainInstrumentLimit()
+      
+      logger.info('Completed top instruments maintenance')
+      
+    } catch (error) {
+      logger.error('Failed to maintain top instruments:', error)
+    }
+  }
+
+  /**
+   * Collect quotes for top volume instruments
+   */
+  async collectTopVolumeQuotes(): Promise<void> {
+    try {
+      const topByVolume = await instrumentDiscoveryService.getTopInstrumentsByVolume(200)
+      
+      if (topByVolume.length > 0) {
+        logger.info(`Collecting quotes for top ${topByVolume.length} instruments by volume`)
+        await this.collectQuotes(topByVolume)
+      }
+      
+    } catch (error) {
+      logger.error('Failed to collect top volume quotes:', error)
+    }
   }
 
   private async processBatch(symbols: string[]): Promise<void> {

@@ -1,0 +1,256 @@
+# SearXNG Configuration - Optimized for Financial Data
+# Documentation: https://docs.searxng.org/admin/settings/index.html
+
+general:
+  debug: false
+  instance_name: "Yobi Financial Search"
+  contact_url: "https://github.com/yobi/trading-platform"
+  enable_stats: true
+
+brand:
+  new_issue_url: ""
+  docs_url: ""
+  public_instances: ""
+  wiki_url: ""
+  issue_url: ""
+
+search:
+  safe_search: 0  # Disable safe search for financial content
+  autocomplete: "google"
+  autocomplete_min: 4
+  default_lang: "en"
+  max_page: 5
+  formats:
+    - html
+    - json
+    - csv
+    - rss
+
+server:
+  port: 8080
+  bind_address: "0.0.0.0"
+  secret_key: "__SEARXNG_SECRET__"  # Will be replaced by Docker
+  base_url: http://localhost:8080
+  image_proxy: true
+  method: "POST"
+  default_http_headers:
+    X-Content-Type-Options: nosniff
+    X-XSS-Protection: 1; mode=block
+    X-Download-Options: noopen
+    X-Robots-Tag: noindex, nofollow
+    Referrer-Policy: no-referrer
+
+redis:
+  url: redis://redis:6379/0
+
+ui:
+  static_use_hash: true
+  default_locale: "en"
+  query_in_title: false
+  infinite_scroll: false
+  center_alignment: false
+  cache_url: "https://web.archive.org/web/{}"
+  default_theme: simple
+  theme_args:
+    simple_style: dark
+
+# Categories optimized for financial data
+categories_as_tabs:
+  general:
+    timeout: 3.0
+    workers: 4
+    keepalive: true
+  news:
+    timeout: 3.0
+    workers: 4
+    keepalive: true
+  files:
+    timeout: 4.0
+    workers: 4
+    keepalive: true
+  science:
+    timeout: 4.0
+    workers: 4
+    keepalive: true
+
+# Engines configuration - optimized for financial content
+engines:
+  # General search engines
+  - name: google
+    engine: google
+    shortcut: g
+    use_mobile_ui: false
+    timeout: 3.0
+    categories: [general, news]
+    disabled: false
+
+  - name: bing
+    engine: bing
+    shortcut: b
+    timeout: 3.0
+    categories: [general, news]
+    disabled: false
+
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    timeout: 3.0
+    categories: [general, news]
+    disabled: false
+
+  - name: yahoo
+    engine: yahoo
+    shortcut: yh
+    timeout: 3.0
+    categories: [general, news]
+    disabled: false
+
+  - name: startpage
+    engine: startpage
+    shortcut: sp
+    timeout: 4.0
+    categories: [general]
+    disabled: false
+
+  # Financial-specific engines
+  - name: yahoo finance
+    engine: yahoo_finance
+    shortcut: yf
+    timeout: 4.0
+    categories: [general]
+    disabled: false
+
+  - name: google news
+    engine: google_news
+    shortcut: gn
+    timeout: 3.0
+    categories: [news]
+    disabled: false
+
+  - name: bing news
+    engine: bing_news
+    shortcut: bn
+    timeout: 3.0
+    categories: [news]
+    disabled: false
+
+  # Academic and research engines for analysis
+  - name: google scholar
+    engine: google_scholar
+    shortcut: gs
+    timeout: 4.0
+    categories: [science]
+    disabled: false
+
+  - name: semantic scholar
+    engine: semantic_scholar
+    shortcut: se
+    timeout: 4.0
+    categories: [science]
+    disabled: false
+
+  # File search for SEC filings and reports
+  - name: google files
+    engine: google
+    shortcut: gf
+    timeout: 4.0
+    categories: [files]
+    additional_tests:
+      matrix:
+        query: ["SEC filing", "10-K report", "earnings report"]
+        lang: ["en"]
+    disabled: false
+
+  # Alternative search engines
+  - name: yandex
+    engine: yandex
+    shortcut: ya
+    timeout: 3.0
+    categories: [general]
+    disabled: true  # Can be enabled if needed
+
+  - name: baidu
+    engine: baidu
+    shortcut: bd
+    timeout: 3.0
+    categories: [general]
+    disabled: true  # Can be enabled for Chinese markets
+
+  # Social media and forums (for sentiment analysis)
+  - name: reddit
+    engine: reddit
+    shortcut: re
+    timeout: 4.0
+    categories: [social media]
+    disabled: false
+
+  - name: twitter
+    engine: twitter
+    shortcut: tw
+    timeout: 3.0
+    categories: [social media]
+    disabled: true  # Twitter API changes
+
+# Custom financial search shortcuts
+search_on_category_select: true
+autocomplete_min: 2
+
+# Localization settings
+locales:
+  en: English (Global)
+  en-US: English (United States)
+
+# Default search engines for financial queries
+default_lang: "en"
+strip_trailing_slash: true
+results_on_new_tab: false
+
+# Rate limiting and performance
+request_timeout: 4.0
+pool_connections: 100
+pool_maxsize: 20
+
+# Metrics and monitoring
+outgoing:
+  request_timeout: 4.0
+  useragent_suffix: " (Yobi Financial Platform)"
+  pool_connections: 200
+  pool_maxsize: 10
+  enable_http2: true
+
+# DOI resolver for academic papers
+doi_resolver:
+  - "https://doi.org/"
+  - "https://sci-hub.se/"
+
+# Custom result formatting for financial data
+result_proxy:
+  url: null
+  key: null
+
+# Hostnames plugin for whitelisting financial domains
+hostnames:
+  replace:
+    '(.*\.)?youtube\.com$': 'invidious.snopyta.org'
+  remove:
+    - '(.*\.)?facebook\.com$'
+    - '(.*\.)?instagram\.com$'
+
+# Financial domain preferences
+engines:
+  # High priority financial domains
+  - name: sec.gov
+    engine: xpath
+    search_url: https://www.sec.gov/cgi-bin/browse-edgar?CIK={query}&Find=Search&owner=exclude&action=getcompany
+    shortcut: sec
+    timeout: 5.0
+    categories: [files]
+    disabled: false
+
+  - name: finviz
+    engine: xpath  
+    search_url: https://finviz.com/screener.ashx?v=111&f=cap_midover&ft=4&o=-marketcap&q={query}
+    shortcut: fv
+    timeout: 4.0
+    categories: [general]
+    disabled: false 

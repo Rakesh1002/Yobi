@@ -204,4 +204,6 @@ export default function CurrencySelector({
       )}
     </div>
   )
-} 
+}
+
+export { CurrencySelector }

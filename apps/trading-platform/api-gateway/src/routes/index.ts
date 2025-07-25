@@ -1,36 +1,29 @@
-import { Router, type Router as RouterType } from 'express'
+import { Router } from 'express'
 import authRoutes from './auth.routes'
-import analysisRoutes from './analysis.routes'
-import currencyRoutes from './currency.routes'
-import documentsRoutes from './documents.routes'
-import instrumentsRoutes from './instruments.routes'
-import knowledgeRoutes from './knowledge.routes'
-import marketRoutes from './market.routes'
-import portfolioRoutes from './portfolio.routes'
 import rankingsRoutes from './rankings.routes'
+import instrumentsRoutes from './instruments.routes'
+import currencyRoutes from './currency.routes'
+import analysisRoutes from './analysis.routes'
+import portfolioRoutes from './portfolio.routes'
+import knowledgeRoutes from './knowledge.routes'
+import documentsRoutes from './documents.routes'
+import marketRoutes from './market.routes'
 import agentRoutes from './agent.routes'
+import alertsRoutes from './alerts.routes'
 
-const router: RouterType = Router()
+const router: Router = Router()
 
-// Health check
-router.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    service: 'api-gateway'
-  })
-})
-
-// Mount routes
+// Mount all route modules
 router.use('/auth', authRoutes)
-router.use('/analysis', analysisRoutes)
-router.use('/currency', currencyRoutes)
-router.use('/documents', documentsRoutes)
-router.use('/instruments', instrumentsRoutes)
-router.use('/knowledge', knowledgeRoutes)
-router.use('/market', marketRoutes)
-router.use('/portfolio', portfolioRoutes)
 router.use('/rankings', rankingsRoutes)
+router.use('/instruments', instrumentsRoutes)
+router.use('/currency', currencyRoutes)
+router.use('/analysis', analysisRoutes)
+router.use('/portfolio', portfolioRoutes)
+router.use('/knowledge', knowledgeRoutes)
+router.use('/documents', documentsRoutes)
+router.use('/market', marketRoutes)
 router.use('/agent', agentRoutes)
+router.use('/alerts', alertsRoutes)
 
 export default router 

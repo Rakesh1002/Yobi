@@ -15,15 +15,44 @@ export class MarketDataScheduler {
   start(): void {
     logger.info('Starting market data scheduler')
 
-    // Real-time quotes during market hours (every 1 minute)
-    const quotesTask = cron.schedule('*/1 * * * *', async () => {
-      if (this.isMarketHours()) {
-        logger.info('Scheduled quotes collection starting')
+    // US Market quotes during market hours (every 1 minute)
+    const usQuotesTask = cron.schedule('*/1 * * * *', async () => {
+      const isDevelopmentMode = process.env.NODE_ENV === 'development' || process.env.DATA_COLLECTOR_DEV_MODE === 'true'
+      const isUSMarketOpen = this.isUSMarketHours()
+      const shouldCollect = isDevelopmentMode || isUSMarketOpen
+      
+      logger.debug(`US Market collection check: isDev=${isDevelopmentMode}, marketOpen=${isUSMarketOpen}, shouldCollect=${shouldCollect}`)
+      
+      if (shouldCollect) {
+        const mode = isDevelopmentMode && !isUSMarketOpen ? '(DEV MODE)' : ''
+        logger.info(`Scheduled US market quotes collection starting ${mode}`)
         try {
-          await this.dataCollectionService.collectQuotes()
-          logger.info('Scheduled quotes collection completed')
+          await this.dataCollectionService.collectNasdaqQuotes()
+          logger.info(`Scheduled US market quotes collection completed ${mode}`)
         } catch (error) {
-          logger.error('Scheduled quotes collection failed:', error)
+          logger.error('Scheduled US market quotes collection failed:', error)
+        }
+      }
+    }, {
+      scheduled: false
+    })
+
+    // Indian Market quotes during market hours (every 1 minute)
+    const inQuotesTask = cron.schedule('*/1 * * * *', async () => {
+      const isDevelopmentMode = process.env.NODE_ENV === 'development' || process.env.DATA_COLLECTOR_DEV_MODE === 'true'
+      const isIndianMarketOpen = this.isIndianMarketHours()
+      const shouldCollect = isDevelopmentMode || isIndianMarketOpen
+      
+      logger.debug(`Indian Market collection check: isDev=${isDevelopmentMode}, marketOpen=${isIndianMarketOpen}, shouldCollect=${shouldCollect}`)
+      
+      if (shouldCollect) {
+        const mode = isDevelopmentMode && !isIndianMarketOpen ? '(DEV MODE)' : ''
+        logger.info(`Scheduled Indian market quotes collection starting ${mode}`)
+        try {
+          await this.dataCollectionService.collectNseQuotes()
+          logger.info(`Scheduled Indian market quotes collection completed ${mode}`)
+        } catch (error) {
+          logger.error('Scheduled Indian market quotes collection failed:', error)
         }
       }
     }, {
@@ -70,17 +99,56 @@ export class MarketDataScheduler {
       scheduled: false
     })
 
+    // Dynamic instrument discovery maintenance (every 2 hours)
+    const discoveryTask = cron.schedule('0 */2 * * *', async () => {
+      logger.info('Scheduled instrument discovery maintenance starting')
+      try {
+        await this.dataCollectionService.maintainTopInstruments()
+        logger.info('Scheduled instrument discovery maintenance completed')
+      } catch (error) {
+        logger.error('Scheduled instrument discovery maintenance failed:', error)
+      }
+    }, {
+      scheduled: false
+    })
+
+    // Collect top volume quotes (every 30 minutes during market hours)
+    const topVolumeTask = cron.schedule('*/30 * * * *', async () => {
+      const isDevelopmentMode = process.env.NODE_ENV === 'development' || process.env.DATA_COLLECTOR_DEV_MODE === 'true'
+      const isAnyMarketOpen = this.isUSMarketHours() || this.isIndianMarketHours()
+      const shouldCollect = isDevelopmentMode || isAnyMarketOpen
+      
+      if (shouldCollect) {
+        const mode = isDevelopmentMode && !isAnyMarketOpen ? '(DEV MODE)' : ''
+        logger.info(`Scheduled top volume collection starting ${mode}`)
+        try {
+          await this.dataCollectionService.collectTopVolumeQuotes()
+          logger.info(`Scheduled top volume collection completed ${mode}`)
+        } catch (error) {
+          logger.error('Scheduled top volume collection failed:', error)
+        }
+      }
+    }, {
+      scheduled: false
+    })
+
     // Start all tasks
-    quotesTask.start()
+    usQuotesTask.start()
+    inQuotesTask.start()
     historicalTask.start()
     fundamentalTask.start()
     healthTask.start()
+    discoveryTask.start()
+    topVolumeTask.start()
 
     // Store references for later cleanup
-    this.scheduledTasks.set('quotes', quotesTask)
+    this.scheduledTasks.set('usQuotes', usQuotesTask)
+    this.scheduledTasks.set('inQuotes', inQuotesTask)
     this.scheduledTasks.set('historical', historicalTask)
     this.scheduledTasks.set('fundamental', fundamentalTask)
     this.scheduledTasks.set('health', healthTask)
+    this.scheduledTasks.set('discovery', discoveryTask)
+    this.scheduledTasks.set('topVolume', topVolumeTask)
 
     logger.info('All scheduled tasks started')
   }
@@ -132,16 +200,44 @@ export class MarketDataScheduler {
   }
 
   private isMarketHours(): boolean {
+    // Check both US and Indian markets
+    return this.isUSMarketHours() || this.isIndianMarketHours()
+  }
+
+  private isUSMarketHours(): boolean {
     const now = new Date()
-    const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}))
     
-    const day = easternTime.getDay() // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-    const hour = easternTime.getHours()
-    const minute = easternTime.getMinutes()
+    // Use Eastern Time for US markets (NYSE, NASDAQ)
+    const easternTimeString = now.toLocaleString('en-US', {
+      timeZone: 'America/New_York',
+      weekday: 'short',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+    
+    // Extract day of week from the string (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
+    const weekdayMatch = easternTimeString.match(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/)
+    const isWeekend = weekdayMatch && (weekdayMatch[1] === 'Sat' || weekdayMatch[1] === 'Sun')
+    
+    // Extract hour and minute using regex
+    const timeMatch = easternTimeString.match(/(\d{2}):(\d{2})/)
+    if (!timeMatch || !timeMatch[1] || !timeMatch[2]) {
+      logger.debug('Could not parse Eastern time')
+      return false
+    }
+    
+    const hour = parseInt(timeMatch[1], 10)
+    const minute = parseInt(timeMatch[2], 10)
     const timeInMinutes = hour * 60 + minute
 
+    logger.debug(`US Market check: UTC=${now.toISOString()}, ET=${easternTimeString}, hour=${hour}, minute=${minute}, weekend=${isWeekend}`)
+
     // Market is closed on weekends
-    if (day === 0 || day === 6) {
+    if (isWeekend) {
       return false
     }
 
@@ -149,27 +245,119 @@ export class MarketDataScheduler {
     const marketOpen = 9 * 60 + 30  // 9:30 AM in minutes
     const marketClose = 16 * 60     // 4:00 PM in minutes
 
-    return timeInMinutes >= marketOpen && timeInMinutes <= marketClose
+    const isOpen = timeInMinutes >= marketOpen && timeInMinutes <= marketClose
+    logger.debug(`US Market hours: ${isOpen} (${timeInMinutes} vs ${marketOpen}-${marketClose})`)
+    
+    return isOpen
+  }
+
+  private isIndianMarketHours(): boolean {
+    const now = new Date()
+    
+    // Use Indian Standard Time for NSE
+    const istTimeString = now.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'short',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    })
+    
+    // Extract day of week from the string (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
+    const weekdayMatch = istTimeString.match(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/)
+    const isWeekend = weekdayMatch && (weekdayMatch[1] === 'Sat' || weekdayMatch[1] === 'Sun')
+    
+    // Extract hour and minute using regex
+    const timeMatch = istTimeString.match(/(\d{2}):(\d{2})/)
+    if (!timeMatch || !timeMatch[1] || !timeMatch[2]) {
+      logger.debug('Could not parse Indian time')
+      return false
+    }
+    
+    const hour = parseInt(timeMatch[1], 10)
+    const minute = parseInt(timeMatch[2], 10)
+    const timeInMinutes = hour * 60 + minute
+
+    logger.debug(`Indian Market check: UTC=${now.toISOString()}, IST=${istTimeString}, hour=${hour}, minute=${minute}, weekend=${isWeekend}`)
+
+    // Market is closed on weekends
+    if (isWeekend) {
+      return false
+    }
+
+    // Indian Market hours: 9:00 AM - 4:00 PM IST
+    const marketOpen = 9 * 60       // 9:00 AM in minutes
+    const marketClose = 16 * 60     // 4:00 PM in minutes
+
+    const isOpen = timeInMinutes >= marketOpen && timeInMinutes <= marketClose
+    logger.debug(`Indian Market hours: ${isOpen} (${timeInMinutes} vs ${marketOpen}-${marketClose})`)
+    
+    return isOpen
   }
 
   private isMarketDay(): boolean {
-    const now = new Date()
-    const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}))
-    const day = easternTime.getDay()
+    return this.isUSMarketDay() || this.isIndianMarketDay()
+  }
 
-    // Monday = 1, Friday = 5
-    return day >= 1 && day <= 5
+  private isUSMarketDay(): boolean {
+    const now = new Date()
+    const easternTimeString = now.toLocaleString('en-US', {
+      timeZone: 'America/New_York',
+      weekday: 'short'
+    })
+    
+    // Check if it's a weekday (Mon-Fri)
+    const weekdayMatch = easternTimeString.match(/^(Mon|Tue|Wed|Thu|Fri)/)
+    return !!weekdayMatch
+  }
+
+  private isIndianMarketDay(): boolean {
+    const now = new Date()
+    const istTimeString = now.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'short'
+    })
+    
+    // Check if it's a weekday (Mon-Fri)
+    const weekdayMatch = istTimeString.match(/^(Mon|Tue|Wed|Thu|Fri)/)
+    return !!weekdayMatch
   }
 
   getScheduleStatus(): any {
+    const now = new Date()
     const status: any = {
       isRunning: this.scheduledTasks.size > 0,
       tasks: {},
       marketInfo: {
-        isMarketHours: this.isMarketHours(),
-        isMarketDay: this.isMarketDay(),
-        currentTime: new Date().toISOString(),
-        easternTime: new Date().toLocaleString("en-US", {timeZone: "America/New_York"})
+        combined: {
+          isMarketHours: this.isMarketHours(),
+          isMarketDay: this.isMarketDay()
+        },
+        us: {
+          isMarketHours: this.isUSMarketHours(),
+          isMarketDay: this.isUSMarketDay(),
+          currentTime: now.toLocaleString("en-US", {timeZone: "America/New_York"}),
+          timeZone: "America/New_York (ET)",
+          tradingHours: "9:30 AM - 4:00 PM ET"
+        },
+        indian: {
+          isMarketHours: this.isIndianMarketHours(),
+          isMarketDay: this.isIndianMarketDay(),
+          currentTime: now.toLocaleString("en-IN", {timeZone: "Asia/Kolkata"}),
+          timeZone: "Asia/Kolkata (IST)",
+          tradingHours: "9:00 AM - 4:00 PM IST"
+        },
+        utc: {
+          currentTime: now.toISOString()
+        }
+      },
+      development: {
+        devMode: process.env.NODE_ENV === 'development' || process.env.DATA_COLLECTOR_DEV_MODE === 'true',
+        nodeEnv: process.env.NODE_ENV,
+        devModeEnv: process.env.DATA_COLLECTOR_DEV_MODE
       }
     }
 

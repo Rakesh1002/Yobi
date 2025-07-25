@@ -26,9 +26,17 @@ interface KnowledgeDocument {
   category: string
   uploadedAt: string
   size: number
-  status: 'PROCESSING' | 'COMPLETED' | 'FAILED'
+  status: 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'DISCOVERED' | 'PROCESSED'
   chunks: number
   concepts: string[]
+  originalFilename?: string
+  mimeType?: string
+  hasFile?: boolean
+  fileStorageType?: 's3' | 'none'
+  ragProcessed?: boolean
+  embeddingsGenerated?: number
+  vectorsStored?: number
+  ragStatus?: 'completed' | 'pending' | 'failed'
 }
 
 interface SearchResult {
@@ -156,6 +164,86 @@ export default function KnowledgeBasePage() {
     },
   })
 
+  // Document download mutation
+  const downloadMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      const response = await fetch(`/api/knowledge/documents/${documentId}/download`)
+      if (!response.ok) throw new Error('Failed to get download URL')
+      return response.json()
+    },
+    onSuccess: (data) => {
+      // Open download URL in new tab
+      window.open(data.data.downloadUrl, '_blank')
+    },
+  })
+
+  // Document view mutation  
+  const viewMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      const response = await fetch(`/api/knowledge/documents/${documentId}/view`)
+      if (!response.ok) throw new Error('Failed to get view URL')
+      return response.json()
+    },
+    onSuccess: (data) => {
+      // Open view URL in new tab
+      window.open(data.data.viewUrl, '_blank')
+    },
+  })
+
+  // Document delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      const response = await fetch(`/api/knowledge/documents/${documentId}`, {
+        method: 'DELETE'
+      })
+      if (!response.ok) throw new Error('Failed to delete document')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['knowledge-documents'] })
+      queryClient.invalidateQueries({ queryKey: ['knowledge-stats'] })
+      setSelectedDocument(null)
+    },
+  })
+
+  // RAG health check
+  const { data: ragHealth } = useQuery({
+    queryKey: ['knowledge-health'],
+    queryFn: async () => {
+      const response = await fetch('/api/knowledge/health')
+      if (!response.ok) throw new Error('Failed to fetch RAG health')
+      return response.json()
+    },
+    refetchInterval: 60000, // Check every minute
+  })
+
+  // Document RAG status query
+  const { data: ragStatus } = useQuery({
+    queryKey: ['document-rag-status', selectedDocument?.id],
+    queryFn: async () => {
+      if (!selectedDocument?.id) return null
+      const response = await fetch(`/api/knowledge/documents/${selectedDocument.id}/rag-status`)
+      if (!response.ok) throw new Error('Failed to fetch RAG status')
+      return response.json()
+    },
+    enabled: !!selectedDocument?.id,
+  })
+
+  // Document reprocess mutation
+  const reprocessMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      const response = await fetch(`/api/knowledge/documents/${documentId}/reprocess`, {
+        method: 'POST'
+      })
+      if (!response.ok) throw new Error('Failed to reprocess document')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['knowledge-documents'] })
+      queryClient.invalidateQueries({ queryKey: ['document-rag-status'] })
+    },
+  })
+
   // Dropzone for file upload
   const onDrop = useCallback((acceptedFiles: File[]) => {
     acceptedFiles.forEach(file => {
@@ -186,11 +274,27 @@ export default function KnowledgeBasePage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'COMPLETED': return 'text-green-600 bg-green-100'
+      case 'COMPLETED':
+      case 'PROCESSED': return 'text-green-600 bg-green-100'
       case 'PROCESSING': return 'text-yellow-600 bg-yellow-100'
       case 'FAILED': return 'text-red-600 bg-red-100'
+      case 'DISCOVERED': return 'text-blue-600 bg-blue-100'
       default: return 'text-gray-600 bg-gray-100'
     }
+  }
+
+  const getRagStatusIcon = (ragProcessed: boolean | undefined, embeddingsGenerated: number | undefined) => {
+    if (ragProcessed && embeddingsGenerated && embeddingsGenerated > 0) {
+      return <Brain className="h-4 w-4 text-purple-500" />
+    }
+    return <AlertCircle className="h-4 w-4 text-gray-400" />
+  }
+
+  const getRagStatusText = (ragProcessed: boolean | undefined, embeddingsGenerated: number | undefined, vectorsStored: number | undefined) => {
+    if (ragProcessed && embeddingsGenerated && embeddingsGenerated > 0) {
+      return `RAG: ${embeddingsGenerated} embeddings, ${vectorsStored || 0} vectors`
+    }
+    return 'RAG: Not processed'
   }
 
   return (
@@ -227,7 +331,7 @@ export default function KnowledgeBasePage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Documents</p>
                 <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                  {stats?.documentCount || 0}
+                  {stats?.data?.documentCount || 0}
                 </p>
               </div>
             </div>
@@ -239,7 +343,7 @@ export default function KnowledgeBasePage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Knowledge Chunks</p>
                 <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                  {stats?.chunkCount || 0}
+                  {stats?.data?.chunkCount || 0}
                 </p>
               </div>
             </div>
@@ -251,7 +355,7 @@ export default function KnowledgeBasePage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Concepts Extracted</p>
                 <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                  {stats?.conceptCount || 0}
+                  {stats?.data?.conceptCount || 0}
                 </p>
               </div>
             </div>
@@ -263,11 +367,83 @@ export default function KnowledgeBasePage() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Analyses Generated</p>
                 <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                  {stats?.analysisCount || 0}
+                  {stats?.data?.analysisCount || 0}
                 </p>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* RAG System Health Dashboard */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <Brain className="h-5 w-5 text-purple-600" />
+            RAG System Status
+          </h2>
+          
+          {ragHealth && (
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              <div className="text-center">
+                <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full mb-2 ${
+                  ragHealth.features.ragCapable ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                }`}>
+                  {ragHealth.features.ragCapable ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                </div>
+                <p className="text-xs font-medium text-gray-900 dark:text-white">RAG Ready</p>
+                <p className="text-xs text-gray-500">{ragHealth.features.ragCapable ? 'Active' : 'Inactive'}</p>
+              </div>
+              
+              <div className="text-center">
+                <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full mb-2 ${
+                  ragHealth.features.embeddings === 'available' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                }`}>
+                  <Brain className="h-4 w-4" />
+                </div>
+                <p className="text-xs font-medium text-gray-900 dark:text-white">Embeddings</p>
+                <p className="text-xs text-gray-500">{ragHealth.features.embeddings}</p>
+              </div>
+              
+              <div className="text-center">
+                <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full mb-2 ${
+                  ragHealth.features.vectorDatabase === 'available' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                }`}>
+                  <Search className="h-4 w-4" />
+                </div>
+                <p className="text-xs font-medium text-gray-900 dark:text-white">Vector DB</p>
+                <p className="text-xs text-gray-500">{ragHealth.features.vectorDatabase}</p>
+              </div>
+              
+              <div className="text-center">
+                <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full mb-2 ${
+                  ragHealth.features.fileStorage === 's3_available' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                }`}>
+                  <Upload className="h-4 w-4" />
+                </div>
+                <p className="text-xs font-medium text-gray-900 dark:text-white">File Storage</p>
+                <p className="text-xs text-gray-500">{ragHealth.features.fileStorage}</p>
+              </div>
+              
+              <div className="text-center">
+                <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full mb-2 ${
+                  ragHealth.features.semanticSearch === 'available' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                }`}>
+                  <FileText className="h-4 w-4" />
+                </div>
+                <p className="text-xs font-medium text-gray-900 dark:text-white">Search</p>
+                <p className="text-xs text-gray-500">{ragHealth.features.semanticSearch}</p>
+              </div>
+              
+              <div className="text-center">
+                <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full mb-2 ${
+                  ragHealth.features.enhancedAnalysis === 'available' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                }`}>
+                  <TrendingUp className="h-4 w-4" />
+                </div>
+                <p className="text-xs font-medium text-gray-900 dark:text-white">AI Analysis</p>
+                <p className="text-xs text-gray-500">{ragHealth.features.enhancedAnalysis}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -275,8 +451,14 @@ export default function KnowledgeBasePage() {
           <div className="space-y-6">
             {/* Search Interface */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                🔍 Search Knowledge Base
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center justify-between">
+                <span>🔍 Search Knowledge Base</span>
+                {ragHealth?.features.ragCapable && (
+                  <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded flex items-center gap-1">
+                    <Brain className="h-3 w-3" />
+                    Vector Search
+                  </span>
+                )}
               </h2>
               
               <div className="relative mb-4">
@@ -292,6 +474,26 @@ export default function KnowledgeBasePage() {
 
               {searchQuery && (
                 <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {searchResults?.metadata && (
+                    <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mb-2 pb-2 border-b border-gray-200 dark:border-gray-600">
+                      <span>
+                        {searchResults.metadata.total} results found
+                        {searchResults.metadata.searchType && (
+                          <span className={`ml-2 px-2 py-1 rounded ${
+                            searchResults.metadata.searchType === 'vector' 
+                              ? 'bg-purple-100 text-purple-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {searchResults.metadata.searchType === 'vector' ? 'Vector Search' : 'Fallback Search'}
+                          </span>
+                        )}
+                      </span>
+                      {searchResults.metadata.ragEnabled !== undefined && !searchResults.metadata.ragEnabled && (
+                        <span className="text-yellow-600">RAG unavailable</span>
+                      )}
+                    </div>
+                  )}
+                  
                   {searchLoading ? (
                     <div className="text-center py-4">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
@@ -366,26 +568,93 @@ export default function KnowledgeBasePage() {
                   </div>
                 ) : documents?.data?.length > 0 ? (
                   documents.data.map((doc: KnowledgeDocument) => (
-                    <div key={doc.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                         onClick={() => setSelectedDocument(doc)}>
+                    <div key={doc.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
                       <div className="flex items-start justify-between">
-                        <div className="flex-1">
+                        <div className="flex-1 cursor-pointer" onClick={() => setSelectedDocument(doc)}>
                           <div className="flex items-center gap-2 mb-1">
                             {getStatusIcon(doc.status)}
                             <h3 className="font-medium text-gray-900 dark:text-white text-sm">
                               {doc.title}
                             </h3>
                           </div>
-                          <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mb-1">
                             <span>{doc.source}</span>
                             <span>{doc.category}</span>
                             <span>{doc.chunks} chunks</span>
                             <span>{(doc.size / 1024).toFixed(1)} KB</span>
                           </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            {getRagStatusIcon(doc.ragProcessed, doc.embeddingsGenerated)}
+                            <span className={doc.ragProcessed ? 'text-purple-600' : 'text-gray-400'}>
+                              {getRagStatusText(doc.ragProcessed, doc.embeddingsGenerated, doc.vectorsStored)}
+                            </span>
+                          </div>
                         </div>
-                        <span className={`text-xs px-2 py-1 rounded ${getStatusColor(doc.status)}`}>
-                          {doc.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-1 rounded ${getStatusColor(doc.status)}`}>
+                            {doc.status}
+                          </span>
+                          
+                          {/* Action buttons */}
+                          {doc.hasFile && doc.fileStorageType === 's3' && (
+                            <div className="flex gap-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  viewMutation.mutate(doc.id)
+                                }}
+                                disabled={viewMutation.isPending}
+                                className="p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded"
+                                title="View document"
+                              >
+                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                              </button>
+                              
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  downloadMutation.mutate(doc.id)
+                                }}
+                                disabled={downloadMutation.isPending}
+                                className="p-1 text-green-600 hover:text-green-700 hover:bg-green-50 rounded"
+                                title="Download document"
+                              >
+                                <Download className="h-4 w-4" />
+                              </button>
+                              
+                              {ragHealth?.features.ragCapable && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    reprocessMutation.mutate(doc.id)
+                                  }}
+                                  disabled={reprocessMutation.isPending}
+                                  className="p-1 text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded"
+                                  title="Reprocess through RAG pipeline"
+                                >
+                                  <Brain className="h-4 w-4" />
+                                </button>
+                              )}
+                              
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (confirm('Are you sure you want to delete this document?')) {
+                                    deleteMutation.mutate(doc.id)
+                                  }
+                                }}
+                                disabled={deleteMutation.isPending}
+                                className="p-1 text-red-600 hover:text-red-700 hover:bg-red-50 rounded"
+                                title="Delete document"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))
@@ -593,7 +862,11 @@ export default function KnowledgeBasePage() {
               {uploadMutation.error && (
                 <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
                   <div className="text-red-800 dark:text-red-200 text-sm">
-                    Error: {uploadMutation.error.message}
+                    <div className="font-medium mb-1">Upload Failed:</div>
+                    <div>{uploadMutation.error.message}</div>
+                    <div className="text-xs mt-2 opacity-75">
+                      Please check: file size (&lt; 100MB), file type (PDF, DOCX, DOC, HTML, TXT), and browser console for details.
+                    </div>
                   </div>
                 </div>
               )}
@@ -656,6 +929,64 @@ export default function KnowledgeBasePage() {
                   ))}
                 </div>
               </div>
+
+              {/* File actions */}
+              {selectedDocument.hasFile && selectedDocument.fileStorageType === 's3' && (
+                <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
+                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    File Actions
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => viewMutation.mutate(selectedDocument.id)}
+                      disabled={viewMutation.isPending}
+                      className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                    >
+                      <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      {viewMutation.isPending ? 'Opening...' : 'View File'}
+                    </button>
+                    
+                    <button
+                      onClick={() => downloadMutation.mutate(selectedDocument.id)}
+                      disabled={downloadMutation.isPending}
+                      className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      {downloadMutation.isPending ? 'Downloading...' : 'Download'}
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        if (confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
+                          deleteMutation.mutate(selectedDocument.id)
+                        }
+                      }}
+                      disabled={deleteMutation.isPending}
+                      className="inline-flex items-center px-3 py-2 border border-red-300 shadow-sm text-sm leading-4 font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
+                  
+                  {selectedDocument.originalFilename && (
+                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                      Original filename: {selectedDocument.originalFilename}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {selectedDocument.fileStorageType === 'none' && (
+                <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
+                  <div className="text-sm text-yellow-600 dark:text-yellow-400">
+                    ⚠️ File storage not configured. Files are not available for download.
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
